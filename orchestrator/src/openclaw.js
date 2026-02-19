@@ -27,7 +27,7 @@ export async function callAgent(message, options = {}) {
   } = options;
 
   const args = ['agent', '--message', message, '--json'];
-  if (agent) args.push('--agent', agent);
+  args.push('--agent', agent || 'main');
   if (model) args.push('--model', model);
   if (thinking) args.push('--thinking', thinking);
   if (sessionId) args.push('--session-id', sessionId);
