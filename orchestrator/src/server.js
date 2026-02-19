@@ -13,6 +13,7 @@ import { dispatch } from './openclaw.js';
 import { analyzeHealthTask, researchTask, draftProposalTask, overnightScanTask } from './agent-tasks.js';
 import { installCron, uninstallCron, listCron } from './cron-setup.js';
 import { checkAllNodes, loadNodes } from './nodes.js';
+import { getSchedule, setSchedule, startScheduler } from './sleep-scheduler.js';
 
 /**
  * Create and configure the Express API server.
@@ -34,9 +35,11 @@ export function createServer({ dbPath }) {
 
   // --- GET /status ---
   app.get('/status', (_req, res) => {
+    const schedule = getSchedule(db);
     res.json({
       pace: getPace(db),
       mode: getMode(db),
+      schedule,
       timestamp: new Date().toISOString(),
     });
   });
@@ -323,6 +326,37 @@ export function createServer({ dbPath }) {
     res.json(loadNodes());
   });
 
+  // --- GET /schedule ---
+  app.get('/schedule', (_req, res) => {
+    const schedule = getSchedule(db);
+    res.json(schedule);
+  });
+
+  // --- POST /schedule ---
+  app.post('/schedule', (req, res) => {
+    const { sleepStart, sleepEnd } = req.body;
+    if (!sleepStart || !sleepEnd) {
+      return res.status(400).json({ error: 'sleepStart and sleepEnd are required (HH:MM format)' });
+    }
+    try {
+      setSchedule(db, sleepStart, sleepEnd);
+      logAction(db, {
+        agent: 'api',
+        action: 'set_schedule',
+        domain: 'system',
+        detail: `Sleep schedule set to ${sleepStart}-${sleepEnd}`,
+      });
+      res.json(getSchedule(db));
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
   const server = http.createServer(app);
+
+  // Start the sleep scheduler (auto-transitions mode based on time)
+  const schedulerInterval = startScheduler(db);
+  server.on('close', () => clearInterval(schedulerInterval));
+
   return { app, server, db };
 }

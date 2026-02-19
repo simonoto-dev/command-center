@@ -254,6 +254,25 @@ server.tool(
   async () => result(await callApi('/nodes/registry')),
 );
 
+// 17. simonoto_get_schedule — GET /schedule
+server.tool(
+  'simonoto_get_schedule',
+  'Get the current sleep schedule (sleepStart and sleepEnd in HH:MM format)',
+  async () => result(await callApi('/schedule')),
+);
+
+// 18. simonoto_set_schedule — POST /schedule
+server.tool(
+  'simonoto_set_schedule',
+  'Set the sleep schedule for auto sleep/wake transitions',
+  {
+    sleepStart: z.string().describe('Sleep start time in HH:MM format (e.g. 23:00)'),
+    sleepEnd: z.string().describe('Sleep end time in HH:MM format (e.g. 08:00)'),
+  },
+  async ({ sleepStart, sleepEnd }) =>
+    result(await callApi('/schedule', { method: 'POST', body: { sleepStart, sleepEnd } })),
+);
+
 // ---------------------------------------------------------------------------
 // Start
 // ---------------------------------------------------------------------------
