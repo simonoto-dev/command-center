@@ -1,0 +1,12 @@
+{
+  "glory-jams": {
+    "name": "Glory Jams",
+    "urls": ["https://gloryjams.com"],
+    "type": "web-app"
+  },
+  "the-familiar": {
+    "name": "The Familiar",
+    "urls": ["https://eeveelution-3a390.web.app"],
+    "type": "pwa"
+  }
+}

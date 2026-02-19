@@ -8,6 +8,7 @@ import { logAction, getRecentLogs } from './audit.js';
 import { isAllowed } from './allowlist.js';
 import { generateBrief } from './brief.js';
 import { sendNotification } from './notify.js';
+import { runHealthScan } from './scan-runner.js';
 
 /**
  * Create and configure the Express API server.
@@ -186,6 +187,12 @@ export function createServer({ dbPath }) {
     } catch (e) {
       res.status(500).json({ error: e.message });
     }
+  });
+
+  // --- POST /scan/health ---
+  app.post('/scan/health', async (req, res) => {
+    const results = await runHealthScan(db);
+    res.json(results);
   });
 
   // --- GET /heartbeat ---
