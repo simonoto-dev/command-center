@@ -7,6 +7,7 @@ import { createProposal, listProposals, resolveProposal } from './proposals.js';
 import { logAction, getRecentLogs } from './audit.js';
 import { isAllowed } from './allowlist.js';
 import { generateBrief } from './brief.js';
+import { sendNotification } from './notify.js';
 
 /**
  * Create and configure the Express API server.
@@ -168,6 +169,23 @@ export function createServer({ dbPath }) {
   // --- GET /brief ---
   app.get('/brief', (_req, res) => {
     res.json(generateBrief(db));
+  });
+
+  // --- POST /notify ---
+  app.post('/notify', async (req, res) => {
+    const pace = getPace(db);
+    const mode = getMode(db);
+    if (!isAllowed(mode, 'notify', pace)) {
+      logAction(db, { agent: 'api', action: 'notify', detail: 'Blocked: notifications not allowed', blocked: true });
+      return res.status(403).json({ error: 'Notifications blocked in current mode' });
+    }
+    try {
+      const result = await sendNotification(req.body);
+      logAction(db, { agent: 'api', action: 'notify', detail: req.body.title });
+      res.json({ sent: true, result });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
   });
 
   // --- GET /heartbeat ---
