@@ -68,4 +68,19 @@ describe('createDb', () => {
     const info = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='scan_results'").get();
     assert.ok(info, 'scan_results table should exist');
   });
+
+  it('should have api_usage table', () => {
+    db = createDb(TEST_DB);
+    const info = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='api_usage'").get();
+    assert.ok(info, 'api_usage table should exist');
+  });
+
+  it('should have budget defaults in system_state', () => {
+    db = createDb(TEST_DB);
+    const ceiling = db.prepare("SELECT value FROM system_state WHERE key = 'budget_ceiling'").get();
+    assert.equal(ceiling.value, '50');
+
+    const costPerCall = db.prepare("SELECT value FROM system_state WHERE key = 'budget_cost_per_call'").get();
+    assert.equal(costPerCall.value, '0.01');
+  });
 });

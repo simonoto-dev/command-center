@@ -1,5 +1,6 @@
 import { listProposals } from './proposals.js';
 import { getRecentLogs } from './audit.js';
+import { getBudgetStatus } from './budget.js';
 
 /**
  * Generate a morning brief summarising pending proposals and overnight activity.
@@ -17,10 +18,13 @@ export function generateBrief(db) {
     return (effortOrder[a.effort] || 99) - (effortOrder[b.effort] || 99);
   });
 
+  const budget = getBudgetStatus(db);
+
   return {
     generated_at: new Date().toISOString(),
     pending_proposals: pending,
     overnight_activity: logs,
+    budget,
     summary: {
       total_pending: pending.length,
       total_activity: logs.length,

@@ -52,6 +52,16 @@ export function createDb(path) {
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       consumed   INTEGER NOT NULL DEFAULT 0
     );
+
+    CREATE TABLE IF NOT EXISTS api_usage (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      agent      TEXT NOT NULL,
+      domain     TEXT NOT NULL,
+      node       TEXT NOT NULL DEFAULT 'pi1',
+      cost       REAL NOT NULL DEFAULT 0.0,
+      duration_ms INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 
   // Insert default system_state values (only if not already present)
@@ -64,6 +74,8 @@ export function createDb(path) {
     insertDefault.run('mode', 'awake');
     insertDefault.run('sleep_start', '23:00');
     insertDefault.run('sleep_end', '08:00');
+    insertDefault.run('budget_ceiling', '50');
+    insertDefault.run('budget_cost_per_call', '0.01');
   });
 
   defaults();

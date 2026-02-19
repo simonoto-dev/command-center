@@ -273,6 +273,35 @@ server.tool(
     result(await callApi('/schedule', { method: 'POST', body: { sleepStart, sleepEnd } })),
 );
 
+// 19. simonoto_budget — GET /budget
+server.tool(
+  'simonoto_budget',
+  'Get the current budget status (ceiling, spent in 24h, remaining, call count)',
+  async () => result(await callApi('/budget')),
+);
+
+// 20. simonoto_set_budget_ceiling — POST /budget/ceiling
+server.tool(
+  'simonoto_set_budget_ceiling',
+  'Set the 24-hour budget ceiling (max API spend in dollars)',
+  {
+    ceiling: z.number().positive().describe('Budget ceiling in dollars per 24h (e.g. 1.00)'),
+  },
+  async ({ ceiling }) =>
+    result(await callApi('/budget/ceiling', { method: 'POST', body: { ceiling } })),
+);
+
+// 21. simonoto_set_cost_per_call — POST /budget/cost-per-call
+server.tool(
+  'simonoto_set_cost_per_call',
+  'Set the estimated cost per API dispatch call (in dollars)',
+  {
+    cost: z.number().min(0).describe('Cost per call in dollars (e.g. 0.01)'),
+  },
+  async ({ cost }) =>
+    result(await callApi('/budget/cost-per-call', { method: 'POST', body: { cost } })),
+);
+
 // ---------------------------------------------------------------------------
 // Start
 // ---------------------------------------------------------------------------

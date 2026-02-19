@@ -14,6 +14,7 @@ import { analyzeHealthTask, researchTask, draftProposalTask, overnightScanTask }
 import { installCron, uninstallCron, listCron } from './cron-setup.js';
 import { checkAllNodes, loadNodes } from './nodes.js';
 import { getSchedule, setSchedule, startScheduler } from './sleep-scheduler.js';
+import { getBudgetStatus, setCeiling, setCostPerCall } from './budget.js';
 
 /**
  * Create and configure the Express API server.
@@ -36,10 +37,12 @@ export function createServer({ dbPath }) {
   // --- GET /status ---
   app.get('/status', (_req, res) => {
     const schedule = getSchedule(db);
+    const budget = getBudgetStatus(db);
     res.json({
       pace: getPace(db),
       mode: getMode(db),
       schedule,
+      budget,
       timestamp: new Date().toISOString(),
     });
   });
@@ -347,6 +350,51 @@ export function createServer({ dbPath }) {
         detail: `Sleep schedule set to ${sleepStart}-${sleepEnd}`,
       });
       res.json(getSchedule(db));
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  // --- GET /budget ---
+  app.get('/budget', (_req, res) => {
+    res.json(getBudgetStatus(db));
+  });
+
+  // --- POST /budget/ceiling ---
+  app.post('/budget/ceiling', (req, res) => {
+    const { ceiling } = req.body;
+    if (ceiling === undefined || ceiling === null) {
+      return res.status(400).json({ error: 'ceiling is required (positive number, dollars per 24h)' });
+    }
+    try {
+      setCeiling(db, Number(ceiling));
+      logAction(db, {
+        agent: 'api',
+        action: 'set_budget_ceiling',
+        domain: 'system',
+        detail: `Budget ceiling set to $${ceiling}/24h`,
+      });
+      res.json(getBudgetStatus(db));
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  // --- POST /budget/cost-per-call ---
+  app.post('/budget/cost-per-call', (req, res) => {
+    const { cost } = req.body;
+    if (cost === undefined || cost === null) {
+      return res.status(400).json({ error: 'cost is required (non-negative number, dollars per call)' });
+    }
+    try {
+      setCostPerCall(db, Number(cost));
+      logAction(db, {
+        agent: 'api',
+        action: 'set_cost_per_call',
+        domain: 'system',
+        detail: `Cost per call set to $${cost}`,
+      });
+      res.json(getBudgetStatus(db));
     } catch (err) {
       res.status(400).json({ error: err.message });
     }

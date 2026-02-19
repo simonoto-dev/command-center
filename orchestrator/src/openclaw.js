@@ -142,6 +142,7 @@ export async function dispatch(db, task) {
   const { getPace, getMode } = await import('./pace.js');
   const { isAllowed } = await import('./allowlist.js');
   const { logAction } = await import('./audit.js');
+  const { isWithinBudget, getCostPerCall, recordUsage } = await import('./budget.js');
 
   const pace = getPace(db);
   const mode = getMode(db);
@@ -159,6 +160,18 @@ export async function dispatch(db, task) {
     return { ok: false, allowed: false, response: null, error: 'Blocked by allowlist' };
   }
 
+  // Budget enforcement: block if 24h ceiling reached
+  if (!isWithinBudget(db)) {
+    logAction(db, {
+      agent: agentName,
+      action: task.action,
+      domain: task.domain,
+      detail: 'Blocked: 24h budget ceiling reached',
+      blocked: true,
+    });
+    return { ok: false, allowed: false, response: null, error: 'Budget ceiling reached' };
+  }
+
   logAction(db, {
     agent: agentName,
     action: task.action,
@@ -167,6 +180,16 @@ export async function dispatch(db, task) {
   });
 
   const result = await callAgent(task.message, task.options);
+
+  // Record API usage for budget tracking
+  const cost = getCostPerCall(db);
+  recordUsage(db, {
+    agent: agentName,
+    domain: task.domain,
+    node: result.node || targetNode,
+    cost,
+    durationMs: result.durationMs || 0,
+  });
 
   logAction(db, {
     agent: agentName,
