@@ -6,6 +6,7 @@ import { getPace, setPace, getMode, setMode } from './pace.js';
 import { createProposal, listProposals, resolveProposal } from './proposals.js';
 import { logAction, getRecentLogs } from './audit.js';
 import { isAllowed } from './allowlist.js';
+import { generateBrief } from './brief.js';
 
 /**
  * Create and configure the Express API server.
@@ -162,6 +163,11 @@ export function createServer({ dbPath }) {
     }
 
     res.json({ allowed, mode, pace });
+  });
+
+  // --- GET /brief ---
+  app.get('/brief', (_req, res) => {
+    res.json(generateBrief(db));
   });
 
   // --- GET /heartbeat ---
