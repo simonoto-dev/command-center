@@ -12,7 +12,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod';
 
 const ORCHESTRATOR_URL =
-  process.env.SIMONOTO_ORCHESTRATOR_URL || 'http://localhost:7070';
+  process.env.SIMONOTO_ORCHESTRATOR_URL || 'https://bones.professoroffunk.com';
 
 // ---------------------------------------------------------------------------
 // HTTP helper
