@@ -231,7 +231,16 @@ export function createServer({ dbPath }) {
     // If the agent returned a proposal suggestion, auto-create it
     if (result.ok && result.response) {
       try {
-        const parsed = JSON.parse(result.response);
+        // Extract agent text from OpenClaw response envelope
+        let agentText = result.response;
+        if (result.raw?.result?.payloads?.[0]?.text) {
+          agentText = result.raw.result.payloads[0].text;
+        }
+        // Strip markdown code fences if present
+        const jsonMatch = agentText.match(/```(?:json)?\s*([\s\S]*?)```/);
+        if (jsonMatch) agentText = jsonMatch[1];
+
+        const parsed = JSON.parse(agentText.trim());
         const proposals = parsed.proposals || (parsed.suggested_proposal ? [parsed.suggested_proposal] : []);
         if (parsed.title && parsed.body) proposals.push(parsed);
         for (const p of proposals) {
