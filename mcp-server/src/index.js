@@ -218,6 +218,27 @@ server.tool(
     ),
 );
 
+// 12. simonoto_cron_install — POST /cron/install
+server.tool(
+  'simonoto_cron_install',
+  'Install overnight cron jobs for automated scanning and research',
+  async () => result(await callApi('/cron/install', { method: 'POST' })),
+);
+
+// 13. simonoto_cron_uninstall — POST /cron/uninstall
+server.tool(
+  'simonoto_cron_uninstall',
+  'Remove all Team Simonoto cron jobs',
+  async () => result(await callApi('/cron/uninstall', { method: 'POST' })),
+);
+
+// 14. simonoto_cron_status — GET /cron/status
+server.tool(
+  'simonoto_cron_status',
+  'Check status of installed cron jobs',
+  async () => result(await callApi('/cron/status')),
+);
+
 // ---------------------------------------------------------------------------
 // Start
 // ---------------------------------------------------------------------------

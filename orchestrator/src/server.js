@@ -11,6 +11,7 @@ import { sendNotification } from './notify.js';
 import { runHealthScan } from './scan-runner.js';
 import { dispatch } from './openclaw.js';
 import { analyzeHealthTask, researchTask, draftProposalTask, overnightScanTask } from './agent-tasks.js';
+import { installCron, uninstallCron, listCron } from './cron-setup.js';
 
 /**
  * Create and configure the Express API server.
@@ -250,6 +251,38 @@ export function createServer({ dbPath }) {
     }
 
     res.json(result);
+  });
+
+  // --- POST /cron/install ---
+  app.post('/cron/install', async (_req, res) => {
+    try {
+      const result = await installCron();
+      logAction(db, { agent: 'api', action: 'maintenance', detail: `Installed ${result.installed} cron jobs` });
+      res.json(result);
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // --- POST /cron/uninstall ---
+  app.post('/cron/uninstall', async (_req, res) => {
+    try {
+      const result = await uninstallCron();
+      logAction(db, { agent: 'api', action: 'maintenance', detail: 'Uninstalled cron jobs' });
+      res.json(result);
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // --- GET /cron/status ---
+  app.get('/cron/status', async (_req, res) => {
+    try {
+      const result = await listCron();
+      res.json(result);
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
   });
 
   // --- GET /heartbeat ---
