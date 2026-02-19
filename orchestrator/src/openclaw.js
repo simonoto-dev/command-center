@@ -31,7 +31,7 @@ export async function callAgent(message, options = {}) {
   if (model) args.push('--model', model);
   if (thinking) args.push('--thinking', thinking);
   if (sessionId) args.push('--session-id', sessionId);
-  args.push('--timeout-seconds', String(timeoutSeconds));
+  args.push('--timeout', String(timeoutSeconds));
 
   const start = Date.now();
   try {
