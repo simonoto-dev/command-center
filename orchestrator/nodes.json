@@ -22,7 +22,7 @@
   },
   "mac-mini": {
     "name": "Mac Mini — Heavy Compute",
-    "host": null,
+    "host": "192.168.4.28",
     "role": "compute",
     "services": {
       "openclaw": { "port": 18789, "healthPath": "/api/health" }

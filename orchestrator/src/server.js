@@ -181,12 +181,12 @@ export function createServer({ dbPath }) {
     const pace = getPace(db);
     const mode = getMode(db);
     if (!isAllowed(mode, 'notify', pace)) {
-      logAction(db, { agent: 'api', action: 'notify', detail: 'Blocked: notifications not allowed', blocked: true });
+      logAction(db, { agent: 'api', action: 'notify', domain: 'system', detail: 'Blocked: notifications not allowed', blocked: true });
       return res.status(403).json({ error: 'Notifications blocked in current mode' });
     }
     try {
       const result = await sendNotification(req.body);
-      logAction(db, { agent: 'api', action: 'notify', detail: req.body.title });
+      logAction(db, { agent: 'api', action: 'notify', domain: 'system', detail: req.body.title });
       res.json({ sent: true, result });
     } catch (e) {
       res.status(500).json({ error: e.message });
@@ -268,7 +268,7 @@ export function createServer({ dbPath }) {
   app.post('/cron/install', async (_req, res) => {
     try {
       const result = await installCron();
-      logAction(db, { agent: 'api', action: 'maintenance', detail: `Installed ${result.installed} cron jobs` });
+      logAction(db, { agent: 'api', action: 'maintenance', domain: 'system', detail: `Installed ${result.installed} cron jobs` });
       res.json(result);
     } catch (e) {
       res.status(500).json({ error: e.message });
@@ -279,7 +279,7 @@ export function createServer({ dbPath }) {
   app.post('/cron/uninstall', async (_req, res) => {
     try {
       const result = await uninstallCron();
-      logAction(db, { agent: 'api', action: 'maintenance', detail: 'Uninstalled cron jobs' });
+      logAction(db, { agent: 'api', action: 'maintenance', domain: 'system', detail: 'Uninstalled cron jobs' });
       res.json(result);
     } catch (e) {
       res.status(500).json({ error: e.message });
