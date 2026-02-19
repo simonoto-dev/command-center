@@ -251,6 +251,7 @@ export function createServer({ dbPath }) {
               body: p.body,
               effort: p.effort || 'unknown',
               recommendation: p.recommendation || 'none',
+              source: `openclaw:${taskType}`,
             });
           }
         }
