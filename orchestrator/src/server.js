@@ -201,7 +201,7 @@ export function createServer({ dbPath }) {
 
   // --- POST /dispatch ---
   app.post('/dispatch', async (req, res) => {
-    const { taskType, domain, topic, context, scanResults, observation } = req.body;
+    const { taskType, domain, topic, context, scanResults, observation, node } = req.body;
 
     if (!taskType || !domain) {
       return res.status(400).json({ error: 'taskType and domain are required' });
@@ -227,16 +227,18 @@ export function createServer({ dbPath }) {
         return res.status(400).json({ error: `Unknown taskType: ${taskType}` });
     }
 
+    // Route to specific node if requested
+    if (node) {
+      task.options = { ...task.options, node };
+    }
+
     const result = await dispatch(db, task);
 
     // If the agent returned a proposal suggestion, auto-create it
+    // callAgent now normalizes response to agent text directly
     if (result.ok && result.response) {
       try {
-        // Extract agent text from OpenClaw response envelope
         let agentText = result.response;
-        if (result.raw?.result?.payloads?.[0]?.text) {
-          agentText = result.raw.result.payloads[0].text;
-        }
         // Strip markdown code fences if present
         const jsonMatch = agentText.match(/```(?:json)?\s*([\s\S]*?)```/);
         if (jsonMatch) agentText = jsonMatch[1];
@@ -252,7 +254,7 @@ export function createServer({ dbPath }) {
               body: p.body,
               effort: p.effort || 'unknown',
               recommendation: p.recommendation || 'none',
-              source: `openclaw:${taskType}`,
+              source: `openclaw:${taskType}@${result.node || 'pi1'}`,
             });
           }
         }

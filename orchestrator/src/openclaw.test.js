@@ -52,7 +52,7 @@ describe('openclaw module', () => {
       // Verify it was logged.
       const logs = getRecentLogs(db, 5);
       const blocked = logs.find(
-        (l) => l.agent === 'openclaw:scan' && l.blocked === 1
+        (l) => l.agent.startsWith('openclaw:scan') && l.blocked === 1
       );
       assert.ok(blocked, 'should find a blocked audit log entry');
       assert.ok(
