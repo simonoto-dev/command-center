@@ -12,7 +12,7 @@
   },
   "pi2": {
     "name": "Pi 2 — Sandbox",
-    "host": null,
+    "host": "192.168.4.26",
     "directHost": "10.0.0.2",
     "role": "sandbox",
     "services": {

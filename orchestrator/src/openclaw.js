@@ -22,8 +22,9 @@ const NODES = {
   },
   pi2: {
     type: 'ssh',
-    user: 'simonoto',
-    host: '10.0.0.2',
+    user: 'syre',
+    host: '192.168.4.26',
+    directHost: '10.0.0.2',
     openclawBin: 'openclaw',
     shell: 'bash -c',
   },
