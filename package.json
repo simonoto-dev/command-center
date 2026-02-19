@@ -1,0 +1,5 @@
+{
+  "name": "team-simonoto",
+  "private": true,
+  "workspaces": ["orchestrator", "mcp-server"]
+}
