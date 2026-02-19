@@ -9,6 +9,8 @@ import { isAllowed } from './allowlist.js';
 import { generateBrief } from './brief.js';
 import { sendNotification } from './notify.js';
 import { runHealthScan } from './scan-runner.js';
+import { dispatch } from './openclaw.js';
+import { analyzeHealthTask, researchTask, draftProposalTask, overnightScanTask } from './agent-tasks.js';
 
 /**
  * Create and configure the Express API server.
@@ -193,6 +195,61 @@ export function createServer({ dbPath }) {
   app.post('/scan/health', async (req, res) => {
     const results = await runHealthScan(db);
     res.json(results);
+  });
+
+  // --- POST /dispatch ---
+  app.post('/dispatch', async (req, res) => {
+    const { taskType, domain, topic, context, scanResults, observation } = req.body;
+
+    if (!taskType || !domain) {
+      return res.status(400).json({ error: 'taskType and domain are required' });
+    }
+
+    let task;
+    switch (taskType) {
+      case 'analyze-health':
+        task = analyzeHealthTask(domain, scanResults || []);
+        break;
+      case 'research':
+        if (!topic) return res.status(400).json({ error: 'topic is required for research tasks' });
+        task = researchTask(domain, topic, context);
+        break;
+      case 'draft-proposal':
+        if (!observation) return res.status(400).json({ error: 'observation is required for draft tasks' });
+        task = draftProposalTask(domain, observation, context);
+        break;
+      case 'overnight-scan':
+        task = overnightScanTask(domain);
+        break;
+      default:
+        return res.status(400).json({ error: `Unknown taskType: ${taskType}` });
+    }
+
+    const result = await dispatch(db, task);
+
+    // If the agent returned a proposal suggestion, auto-create it
+    if (result.ok && result.response) {
+      try {
+        const parsed = JSON.parse(result.response);
+        const proposals = parsed.proposals || (parsed.suggested_proposal ? [parsed.suggested_proposal] : []);
+        if (parsed.title && parsed.body) proposals.push(parsed);
+        for (const p of proposals) {
+          if (p && p.title && p.body) {
+            createProposal(db, {
+              domain,
+              title: p.title,
+              body: p.body,
+              effort: p.effort || 'unknown',
+              recommendation: p.recommendation || 'none',
+            });
+          }
+        }
+      } catch {
+        // Response wasn't parseable JSON with proposals — that's fine
+      }
+    }
+
+    res.json(result);
   });
 
   // --- GET /heartbeat ---

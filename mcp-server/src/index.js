@@ -197,6 +197,27 @@ server.tool(
     result(await callApi('/scan/health', { method: 'POST' })),
 );
 
+// 11. simonoto_dispatch — POST /dispatch
+server.tool(
+  'simonoto_dispatch',
+  'Dispatch an AI agent task via OpenClaw (analyze, research, draft, overnight-scan)',
+  {
+    taskType: z.enum(['analyze-health', 'research', 'draft-proposal', 'overnight-scan']).describe('Type of agent task'),
+    domain: z.string().describe('Domain context (e.g. glory-jams, career, the-familiar)'),
+    topic: z.string().optional().describe('Research topic (required for research tasks)'),
+    context: z.string().optional().describe('Additional context'),
+    observation: z.string().optional().describe('Observation to draft a proposal from (required for draft-proposal)'),
+    scanResults: z.array(z.any()).optional().describe('Health scan results to analyze (for analyze-health)'),
+  },
+  async ({ taskType, domain, topic, context, observation, scanResults }) =>
+    result(
+      await callApi('/dispatch', {
+        method: 'POST',
+        body: { taskType, domain, topic, context, observation, scanResults },
+      }),
+    ),
+);
+
 // ---------------------------------------------------------------------------
 // Start
 // ---------------------------------------------------------------------------
