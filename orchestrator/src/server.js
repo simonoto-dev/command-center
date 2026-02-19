@@ -12,6 +12,7 @@ import { runHealthScan } from './scan-runner.js';
 import { dispatch } from './openclaw.js';
 import { analyzeHealthTask, researchTask, draftProposalTask, overnightScanTask } from './agent-tasks.js';
 import { installCron, uninstallCron, listCron } from './cron-setup.js';
+import { checkAllNodes, loadNodes } from './nodes.js';
 
 /**
  * Create and configure the Express API server.
@@ -303,6 +304,21 @@ export function createServer({ dbPath }) {
       mode: getMode(db),
       timestamp: new Date().toISOString(),
     });
+  });
+
+  // --- GET /nodes ---
+  app.get('/nodes', async (_req, res) => {
+    try {
+      const results = await checkAllNodes();
+      res.json(results);
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // --- GET /nodes/registry ---
+  app.get('/nodes/registry', (_req, res) => {
+    res.json(loadNodes());
   });
 
   const server = http.createServer(app);

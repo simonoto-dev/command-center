@@ -1,0 +1,32 @@
+{
+  "pi1": {
+    "name": "Pi 1 — Ops Desk",
+    "host": "192.168.4.29",
+    "directHost": null,
+    "role": "orchestrator",
+    "services": {
+      "orchestrator": { "port": 7070, "healthPath": "/health" },
+      "openclaw": { "port": 18789, "healthPath": "/api/health" }
+    },
+    "tunnel": "bones.professoroffunk.com"
+  },
+  "pi2": {
+    "name": "Pi 2 — Sandbox",
+    "host": null,
+    "directHost": "10.0.0.2",
+    "role": "sandbox",
+    "services": {
+      "openclaw": { "port": 18789, "healthPath": "/api/health" }
+    },
+    "tunnel": null
+  },
+  "mac-mini": {
+    "name": "Mac Mini — Heavy Compute",
+    "host": null,
+    "role": "compute",
+    "services": {
+      "openclaw": { "port": 18789, "healthPath": "/api/health" }
+    },
+    "tunnel": null
+  }
+}

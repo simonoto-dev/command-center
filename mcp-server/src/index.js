@@ -239,6 +239,20 @@ server.tool(
   async () => result(await callApi('/cron/status')),
 );
 
+// 15. simonoto_node_health — GET /nodes
+server.tool(
+  'simonoto_node_health',
+  'Check health of all compute nodes (Pi 1, Pi 2, Mac Mini) and their services',
+  async () => result(await callApi('/nodes')),
+);
+
+// 16. simonoto_node_registry — GET /nodes/registry
+server.tool(
+  'simonoto_node_registry',
+  'Get the raw node registry configuration',
+  async () => result(await callApi('/nodes/registry')),
+);
+
 // ---------------------------------------------------------------------------
 // Start
 // ---------------------------------------------------------------------------
