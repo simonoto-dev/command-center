@@ -143,6 +143,7 @@ export async function dispatch(db, task) {
   const { isAllowed } = await import('./allowlist.js');
   const { logAction } = await import('./audit.js');
   const { isWithinBudget, getCostPerCall, recordUsage } = await import('./budget.js');
+  const { checkAnomalies } = await import('./anomaly.js');
 
   const pace = getPace(db);
   const mode = getMode(db);
@@ -200,6 +201,9 @@ export async function dispatch(db, task) {
       : `Failed on ${result.node}: ${result.error}`,
     blocked: false,
   });
+
+  // Run anomaly detection after each dispatch
+  checkAnomalies(db);
 
   return { ...result, allowed: true };
 }

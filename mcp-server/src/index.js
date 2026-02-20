@@ -302,6 +302,13 @@ server.tool(
     result(await callApi('/budget/cost-per-call', { method: 'POST', body: { cost } })),
 );
 
+// 22. simonoto_anomalies — GET /anomalies
+server.tool(
+  'simonoto_anomalies',
+  'Check for anomalies (excessive calls, repeated failures) and get current thresholds',
+  async () => result(await callApi('/anomalies')),
+);
+
 // ---------------------------------------------------------------------------
 // Start
 // ---------------------------------------------------------------------------

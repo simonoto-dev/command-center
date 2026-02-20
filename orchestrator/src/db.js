@@ -76,6 +76,8 @@ export function createDb(path) {
     insertDefault.run('sleep_end', '08:00');
     insertDefault.run('budget_ceiling', '50');
     insertDefault.run('budget_cost_per_call', '0.01');
+    insertDefault.run('max_calls_per_agent_per_hour', '20');
+    insertDefault.run('max_consecutive_failures', '5');
   });
 
   defaults();

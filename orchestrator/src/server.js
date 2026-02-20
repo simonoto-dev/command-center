@@ -15,6 +15,7 @@ import { installCron, uninstallCron, listCron } from './cron-setup.js';
 import { checkAllNodes, loadNodes } from './nodes.js';
 import { getSchedule, setSchedule, startScheduler } from './sleep-scheduler.js';
 import { getBudgetStatus, setCeiling, setCostPerCall } from './budget.js';
+import { checkAnomalies, getAnomalyThresholds, setAnomalyThreshold } from './anomaly.js';
 
 /**
  * Create and configure the Express API server.
@@ -395,6 +396,33 @@ export function createServer({ dbPath }) {
         detail: `Cost per call set to $${cost}`,
       });
       res.json(getBudgetStatus(db));
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  // --- GET /anomalies ---
+  app.get('/anomalies', (_req, res) => {
+    const result = checkAnomalies(db);
+    const thresholds = getAnomalyThresholds(db);
+    res.json({ ...result, thresholds });
+  });
+
+  // --- POST /anomalies/threshold ---
+  app.post('/anomalies/threshold', (req, res) => {
+    const { key, value } = req.body;
+    if (!key || value === undefined) {
+      return res.status(400).json({ error: 'key and value are required' });
+    }
+    try {
+      setAnomalyThreshold(db, key, Number(value));
+      logAction(db, {
+        agent: 'api',
+        action: 'set_anomaly_threshold',
+        domain: 'system',
+        detail: `${key} set to ${value}`,
+      });
+      res.json(getAnomalyThresholds(db));
     } catch (err) {
       res.status(400).json({ error: err.message });
     }
