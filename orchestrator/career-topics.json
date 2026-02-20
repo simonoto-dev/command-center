@@ -1,0 +1,74 @@
+{
+  "references": [
+    {
+      "name": "Otis McDonald",
+      "role": "Producer/composer",
+      "note": "Primary trajectory model — built success through YouTube Audio Library and licensing"
+    },
+    {
+      "name": "Solomon Fox",
+      "role": "Producer/musician",
+      "note": "Active contemporary — study approach to independent releases and brand"
+    },
+    {
+      "name": "Kount Koal",
+      "role": "Producer/musician",
+      "note": "Active contemporary — creative output and community engagement"
+    },
+    {
+      "name": "Kalin Ellis",
+      "role": "Multi-instrumentalist/producer",
+      "note": "Active contemporary — versatile independent artist model"
+    }
+  ],
+  "topics": [
+    {
+      "id": "licensing-strategies",
+      "category": "revenue",
+      "topic": "Sync licensing strategies for independent producers — platforms, pricing, catalog management, non-exclusive vs exclusive deals",
+      "frequency": "weekly"
+    },
+    {
+      "id": "platform-landscape",
+      "category": "distribution",
+      "topic": "Music distribution and streaming platform landscape for independents — DistroKid, TuneCore, AWAL, direct-to-fan options, platform changes and trends",
+      "frequency": "weekly"
+    },
+    {
+      "id": "audience-building",
+      "category": "growth",
+      "topic": "Audience building patterns for independent producers/musicians — social media strategies, content creation, community engagement, what's working in 2026",
+      "frequency": "weekly"
+    },
+    {
+      "id": "revenue-diversification",
+      "category": "revenue",
+      "topic": "Revenue diversification for independent musicians — teaching, production services, sample packs, Patreon/subscription models, live performance, brand partnerships",
+      "frequency": "weekly"
+    },
+    {
+      "id": "collaboration-models",
+      "category": "growth",
+      "topic": "Collaboration and networking models for independent producers — remote collab tools, split sheet best practices, finding the right collaborators, building a production team",
+      "frequency": "biweekly"
+    },
+    {
+      "id": "industry-shifts",
+      "category": "trends",
+      "topic": "Music industry shifts and emerging opportunities for independent producers — AI tools, new platforms, changing consumer behavior, emerging genres and markets",
+      "frequency": "weekly"
+    },
+    {
+      "id": "glory-jams-expansion",
+      "category": "project",
+      "topic": "Jam session community expansion strategies — new cities, partnerships with music schools/studios, event promotion, building local scenes, online-to-offline conversion",
+      "frequency": "biweekly"
+    },
+    {
+      "id": "brand-building",
+      "category": "growth",
+      "topic": "Personal brand building for independent musicians/producers — website optimization, EPK best practices, visual identity, storytelling, press outreach",
+      "frequency": "biweekly"
+    }
+  ]
+}

@@ -34,9 +34,13 @@ export function buildCronLines() {
     );
   }
 
-  // Career research once per night at 2am
+  // Career intelligence research — rotates topics automatically
+  // Runs at 1am and 4am to cover two different topics per night
   lines.push(
-    `0 2 * * * curl -sf -X POST ${ORCHESTRATOR_URL}/dispatch -H 'Content-Type: application/json' -d '{"taskType":"research","domain":"career","topic":"independent music producer landscape - licensing opportunities, platform changes, emerging revenue streams"}' >> /tmp/simonoto-cron.log 2>&1 ${CRON_TAG}`,
+    `0 1 * * * curl -sf -X POST ${ORCHESTRATOR_URL}/dispatch -H 'Content-Type: application/json' -d '{"taskType":"career-research","domain":"career"}' >> /tmp/simonoto-cron.log 2>&1 ${CRON_TAG}`,
+  );
+  lines.push(
+    `0 4 * * * curl -sf -X POST ${ORCHESTRATOR_URL}/dispatch -H 'Content-Type: application/json' -d '{"taskType":"career-research","domain":"career"}' >> /tmp/simonoto-cron.log 2>&1 ${CRON_TAG}`,
   );
 
   // Morning brief trigger at 7:30am (prepares brief before wake)

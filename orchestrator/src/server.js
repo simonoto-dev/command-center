@@ -10,12 +10,13 @@ import { generateBrief } from './brief.js';
 import { sendNotification } from './notify.js';
 import { runHealthScan } from './scan-runner.js';
 import { dispatch } from './openclaw.js';
-import { analyzeHealthTask, researchTask, draftProposalTask, overnightScanTask } from './agent-tasks.js';
+import { analyzeHealthTask, researchTask, draftProposalTask, overnightScanTask, careerResearchTask } from './agent-tasks.js';
 import { installCron, uninstallCron, listCron } from './cron-setup.js';
 import { checkAllNodes, loadNodes } from './nodes.js';
 import { getSchedule, setSchedule, startScheduler } from './sleep-scheduler.js';
 import { getBudgetStatus, setCeiling, setCostPerCall } from './budget.js';
 import { checkAnomalies, getAnomalyThresholds, setAnomalyThreshold } from './anomaly.js';
+import { getRecentEntries, getEntries, getTopics, getReferences, addEntry } from './dossier.js';
 
 /**
  * Create and configure the Express API server.
@@ -230,6 +231,9 @@ export function createServer({ dbPath }) {
       case 'overnight-scan':
         task = overnightScanTask(domain);
         break;
+      case 'career-research':
+        task = careerResearchTask(db);
+        break;
       default:
         return res.status(400).json({ error: `Unknown taskType: ${taskType}` });
     }
@@ -251,6 +255,18 @@ export function createServer({ dbPath }) {
         if (jsonMatch) agentText = jsonMatch[1];
 
         const parsed = JSON.parse(agentText.trim());
+
+        // Store career research findings in the dossier
+        if (taskType === 'career-research' && parsed.findings) {
+          addEntry(db, {
+            topicId: parsed.topic_id || task._topicId || 'unknown',
+            category: task._category || 'general',
+            findings: parsed.findings,
+            relevance: parsed.relevance || 'medium',
+            source: `openclaw:career-research@${result.node || 'pi1'}`,
+          });
+        }
+
         const proposals = parsed.proposals || (parsed.suggested_proposal ? [parsed.suggested_proposal] : []);
         if (parsed.title && parsed.body) proposals.push(parsed);
         for (const p of proposals) {
@@ -406,6 +422,27 @@ export function createServer({ dbPath }) {
     const result = checkAnomalies(db);
     const thresholds = getAnomalyThresholds(db);
     res.json({ ...result, thresholds });
+  });
+
+  // --- GET /dossier ---
+  app.get('/dossier', (req, res) => {
+    const { topicId, category, limit } = req.query;
+    const opts = {};
+    if (topicId) opts.topicId = topicId;
+    if (category) opts.category = category;
+    if (limit) opts.limit = Number(limit);
+    res.json(getEntries(db, opts));
+  });
+
+  // --- GET /dossier/topics ---
+  app.get('/dossier/topics', (_req, res) => {
+    res.json({ topics: getTopics(), references: getReferences() });
+  });
+
+  // --- GET /dossier/recent ---
+  app.get('/dossier/recent', (req, res) => {
+    const limit = req.query.limit ? Number(req.query.limit) : 20;
+    res.json(getRecentEntries(db, limit));
   });
 
   // --- POST /anomalies/threshold ---

@@ -202,7 +202,7 @@ server.tool(
   'simonoto_dispatch',
   'Dispatch an AI agent task via OpenClaw (analyze, research, draft, overnight-scan). Can target specific nodes.',
   {
-    taskType: z.enum(['analyze-health', 'research', 'draft-proposal', 'overnight-scan']).describe('Type of agent task'),
+    taskType: z.enum(['analyze-health', 'research', 'draft-proposal', 'overnight-scan', 'career-research']).describe('Type of agent task'),
     domain: z.string().describe('Domain context (e.g. glory-jams, career, the-familiar)'),
     topic: z.string().optional().describe('Research topic (required for research tasks)'),
     context: z.string().optional().describe('Additional context'),
@@ -302,7 +302,27 @@ server.tool(
     result(await callApi('/budget/cost-per-call', { method: 'POST', body: { cost } })),
 );
 
-// 22. simonoto_anomalies — GET /anomalies
+// 22. simonoto_dossier — GET /dossier/recent
+server.tool(
+  'simonoto_dossier',
+  'Get recent career intelligence dossier entries (research findings, insights)',
+  {
+    topicId: z.string().optional().describe('Filter by topic ID'),
+    category: z.string().optional().describe('Filter by category (revenue, distribution, growth, trends, project)'),
+    limit: z.number().optional().describe('Max entries to return (default 20)'),
+  },
+  async ({ topicId, category, limit }) =>
+    result(await callApi('/dossier', { query: { topicId, category, limit: limit?.toString() } })),
+);
+
+// 23. simonoto_dossier_topics — GET /dossier/topics
+server.tool(
+  'simonoto_dossier_topics',
+  'Get the list of career research topics and reference artists',
+  async () => result(await callApi('/dossier/topics')),
+);
+
+// 24. simonoto_anomalies — GET /anomalies
 server.tool(
   'simonoto_anomalies',
   'Check for anomalies (excessive calls, repeated failures) and get current thresholds',

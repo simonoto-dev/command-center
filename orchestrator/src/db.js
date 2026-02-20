@@ -62,6 +62,16 @@ export function createDb(path) {
       duration_ms INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS dossier_entries (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      topic_id   TEXT NOT NULL,
+      category   TEXT NOT NULL,
+      findings   TEXT NOT NULL,
+      relevance  TEXT NOT NULL DEFAULT 'medium',
+      source     TEXT NOT NULL DEFAULT 'agent',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 
   // Insert default system_state values (only if not already present)
