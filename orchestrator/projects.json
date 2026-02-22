@@ -1,12 +1,52 @@
 {
-  "glory-jams": {
-    "name": "Glory Jams",
-    "urls": ["https://gloryjams.com"],
-    "type": "web-app"
+  "simonoto-com": {
+    "name": "Simonoto.com",
+    "urls": ["https://simonoto.com"],
+    "type": "website",
+    "repo": "https://github.com/simonoto-dev/simonoto-dev.github.io.git",
+    "branch": "main",
+    "testCmd": null,
+    "buildCmd": "python build.py",
+    "notes": "GitHub Pages site. Python build system (build.py + content.json). Portfolio/main website."
   },
-  "the-familiar": {
-    "name": "The Familiar",
+  "eeveelution": {
+    "name": "Eeveelution",
     "urls": ["https://eeveelution-3a390.web.app"],
-    "type": "pwa"
+    "type": "pwa",
+    "repo": "https://github.com/simonoto-dev/Eeveelution.git",
+    "branch": "main",
+    "testCmd": null,
+    "buildCmd": null,
+    "notes": "Single-file PWA (index.html) deployed to Firebase Hosting. JRPG chat wrapper for OpenClaw via WSS. Firebase SDK 11.4.0."
+  },
+  "professor-of-funk": {
+    "name": "Professor of Funk",
+    "urls": ["https://professoroffunk.com"],
+    "type": "website",
+    "repo": "https://github.com/simonoto-dev/professor-of-funk.git",
+    "branch": "main",
+    "testCmd": null,
+    "buildCmd": null,
+    "notes": "Music education platform. Firebase Hosting. Separate from simonoto.com."
+  },
+  "bonito-express": {
+    "name": "Bonito Express",
+    "urls": ["https://simonoto.com/japan"],
+    "type": "webapp",
+    "repo": "https://github.com/simonoto-dev/bonito-express.git",
+    "branch": "main",
+    "testCmd": null,
+    "buildCmd": null,
+    "notes": "Japan trip planning app. React via CDN + Firebase Realtime DB. Currently hosted as sub-path of simonoto.com."
+  },
+  "pork-radio": {
+    "name": "Pork Radio",
+    "urls": [],
+    "type": "device",
+    "repo": "https://github.com/simonoto-dev/pork-radio.git",
+    "branch": "main",
+    "testCmd": null,
+    "buildCmd": null,
+    "notes": "Radio sampling device project. New — repo is empty, in early planning."
   }
 }

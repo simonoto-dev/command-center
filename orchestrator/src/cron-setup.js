@@ -27,20 +27,27 @@ export function buildCronLines() {
   const projects = loadProjects();
   const lines = [];
 
-  // Health scans every 2 hours for each project
-  for (const domain of Object.keys(projects)) {
+  // Health scans every 2 hours, staggered 5 min apart to avoid concurrent OpenClaw calls
+  const domains = Object.keys(projects);
+  for (let i = 0; i < domains.length; i++) {
+    const minute = i * 5; // 0, 5, 10, ...
     lines.push(
-      `0 */2 * * * curl -sf -X POST ${ORCHESTRATOR_URL}/dispatch -H 'Content-Type: application/json' -d '{"taskType":"overnight-scan","domain":"${domain}"}' >> /tmp/simonoto-cron.log 2>&1 ${CRON_TAG}`,
+      `${minute} */2 * * * curl -sf -X POST ${ORCHESTRATOR_URL}/dispatch -H 'Content-Type: application/json' -d '{"taskType":"overnight-scan","domain":"${domains[i]}"}' >> /tmp/simonoto-cron.log 2>&1 ${CRON_TAG}`,
     );
   }
 
   // Career intelligence research — rotates topics automatically
-  // Runs at 1am and 4am to cover two different topics per night
+  // Staggered at :30 to avoid colliding with scans (5 projects use :00-:20)
   lines.push(
-    `0 1 * * * curl -sf -X POST ${ORCHESTRATOR_URL}/dispatch -H 'Content-Type: application/json' -d '{"taskType":"career-research","domain":"career"}' >> /tmp/simonoto-cron.log 2>&1 ${CRON_TAG}`,
+    `30 1 * * * curl -sf -X POST ${ORCHESTRATOR_URL}/dispatch -H 'Content-Type: application/json' -d '{"taskType":"career-research","domain":"career"}' >> /tmp/simonoto-cron.log 2>&1 ${CRON_TAG}`,
   );
   lines.push(
-    `0 4 * * * curl -sf -X POST ${ORCHESTRATOR_URL}/dispatch -H 'Content-Type: application/json' -d '{"taskType":"career-research","domain":"career"}' >> /tmp/simonoto-cron.log 2>&1 ${CRON_TAG}`,
+    `30 4 * * * curl -sf -X POST ${ORCHESTRATOR_URL}/dispatch -H 'Content-Type: application/json' -d '{"taskType":"career-research","domain":"career"}' >> /tmp/simonoto-cron.log 2>&1 ${CRON_TAG}`,
+  );
+
+  // Sandbox execution — try to implement greenlit proposals every 3 hours at :45
+  lines.push(
+    `45 */3 * * * curl -sf -X POST ${ORCHESTRATOR_URL}/sandbox/run >> /tmp/simonoto-cron.log 2>&1 ${CRON_TAG}`,
   );
 
   // Morning brief trigger at 7:30am (prepares brief before wake)
