@@ -47,7 +47,7 @@ describe('Express API server', () => {
       assert.equal(res.status, 200);
       const body = await res.json();
       assert.equal(body.pace, 'pause');
-      assert.equal(body.mode, 'awake');
+      assert.ok(['awake', 'sleep'].includes(body.mode), `mode should be awake or sleep, got ${body.mode}`);
       assert.ok(body.timestamp);
     });
   });

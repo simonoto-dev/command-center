@@ -46,7 +46,7 @@ export async function checkAllNodes() {
 
   const checks = [];
   for (const [nodeId, node] of Object.entries(nodes)) {
-    const host = node.directHost || node.host;
+    const host = node.host || node.directHost;
     results[nodeId] = { name: node.name, role: node.role, host, services: {} };
 
     if (!host) {
