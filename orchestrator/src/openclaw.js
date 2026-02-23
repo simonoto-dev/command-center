@@ -72,24 +72,28 @@ export async function callAgent(message, options = {}) {
       });
       stdout = result.stdout;
     } else {
-      // Run openclaw on a remote node via SSH
+      // Run openclaw on a remote node via SSH.
+      // Shell-escape the message using single-quote wrapping to handle
+      // any special characters (quotes, $, !, etc.) in the prompt.
       const bin = nodeDef.openclawBin || 'openclaw';
-      const ocArgs = [
+      const escaped = message.replace(/'/g, "'\\''");
+      const parts = [
         bin, 'agent',
         '--agent', agent || 'main',
-        '--message', `"${message.replace(/"/g, '\\"')}"`,
+        '--message', `'${escaped}'`,
         '--json',
         '--timeout', String(timeoutSeconds),
       ];
-      if (model) ocArgs.push('--model', model);
-      if (thinking) ocArgs.push('--thinking', thinking);
+      if (model) parts.push('--model', model);
+      if (thinking) parts.push('--thinking', thinking);
+      parts.push('2>/dev/null');
 
-      const sshCmd = `${nodeDef.shell} '${ocArgs.join(' ')} 2>/dev/null'`;
+      const remoteCmd = parts.join(' ');
       const result = await execFileAsync('ssh', [
         '-o', 'ConnectTimeout=10',
         '-o', 'StrictHostKeyChecking=no',
         `${nodeDef.user}@${nodeDef.host}`,
-        sshCmd,
+        remoteCmd,
       ], {
         timeout: (timeoutSeconds + 30) * 1000,
         maxBuffer: 1024 * 1024,

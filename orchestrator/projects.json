@@ -17,7 +17,8 @@
     "branch": "main",
     "testCmd": null,
     "buildCmd": null,
-    "notes": "Single-file PWA (index.html) deployed to Firebase Hosting. JRPG chat wrapper for OpenClaw via WSS. Firebase SDK 11.4.0."
+    "notes": "Single-file PWA (index.html) deployed to Firebase Hosting. JRPG chat wrapper for OpenClaw via WSS. Firebase SDK 11.4.0.",
+    "deploy": { "platform": "firebase-hosting", "project": "eeveelution-3a390", "auth": "FIREBASE_TOKEN", "deprecationRisk": true }
   },
   "professor-of-funk": {
     "name": "Professor of Funk",
@@ -27,7 +28,8 @@
     "branch": "main",
     "testCmd": null,
     "buildCmd": null,
-    "notes": "Music education platform. Firebase Hosting. Separate from simonoto.com."
+    "notes": "Music education platform. Firebase Hosting. Separate from simonoto.com.",
+    "deploy": { "platform": "firebase-hosting", "project": "professor-of-funk", "auth": "FIREBASE_TOKEN", "deprecationRisk": true }
   },
   "bonito-express": {
     "name": "Bonito Express",

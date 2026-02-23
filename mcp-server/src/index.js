@@ -200,21 +200,23 @@ server.tool(
 // 11. simonoto_dispatch — POST /dispatch
 server.tool(
   'simonoto_dispatch',
-  'Dispatch an AI agent task via OpenClaw (analyze, research, draft, overnight-scan). Can target specific nodes.',
+  'Dispatch an AI agent task via OpenClaw. Can target specific nodes.',
   {
-    taskType: z.enum(['analyze-health', 'research', 'draft-proposal', 'overnight-scan', 'career-research']).describe('Type of agent task'),
-    domain: z.string().describe('Domain context (e.g. glory-jams, career, the-familiar)'),
+    taskType: z.enum(['analyze-health', 'research', 'draft-proposal', 'overnight-scan', 'career-research', 'strategy-synthesis', 'content-draft', 'sandbox-execute']).describe('Type of agent task'),
+    domain: z.string().describe('Domain context (e.g. simonoto-com, career, content)'),
     topic: z.string().optional().describe('Research topic (required for research tasks)'),
     context: z.string().optional().describe('Additional context'),
     observation: z.string().optional().describe('Observation to draft a proposal from (required for draft-proposal)'),
     scanResults: z.array(z.any()).optional().describe('Health scan results to analyze (for analyze-health)'),
     node: z.enum(['pi1', 'mac-mini', 'pi2']).optional().describe('Target compute node (default: pi1)'),
+    platform: z.enum(['instagram', 'twitter', 'youtube', 'general']).optional().describe('Target platform for content-draft tasks'),
+    proposalId: z.number().optional().describe('Proposal ID for sandbox-execute tasks'),
   },
-  async ({ taskType, domain, topic, context, observation, scanResults, node }) =>
+  async ({ taskType, domain, topic, context, observation, scanResults, node, platform, proposalId }) =>
     result(
       await callApi('/dispatch', {
         method: 'POST',
-        body: { taskType, domain, topic, context, observation, scanResults, node },
+        body: { taskType, domain, topic, context, observation, scanResults, node, platform, proposalId },
       }),
     ),
 );

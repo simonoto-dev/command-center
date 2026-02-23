@@ -1,7 +1,7 @@
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createDb } from './db.js';
-import { createProposal, listProposals, resolveProposal } from './proposals.js';
+import { createProposal, listProposals, resolveProposal, findDuplicate } from './proposals.js';
 import { unlinkSync } from 'node:fs';
 
 const TEST_DB = 'test-proposals.db';
@@ -160,5 +160,129 @@ describe('proposals module', () => {
       () => resolveProposal(db, p.id, 'yolo', 'bad status'),
       /Invalid resolution status/
     );
+  });
+
+  // --- Deduplication tests ---
+
+  it('should deduplicate proposals with the same domain and title', () => {
+    const first = createProposal(db, {
+      domain: 'dedup-test',
+      title: 'Add favicon',
+      body: 'First body text',
+      effort: 'small',
+      recommendation: 'greenlight',
+      source: 'scan-cycle-1',
+    });
+
+    const second = createProposal(db, {
+      domain: 'dedup-test',
+      title: 'Add favicon',
+      body: 'Different body text from later scan',
+      effort: 'small',
+      recommendation: 'greenlight',
+      source: 'scan-cycle-2',
+    });
+
+    assert.equal(first.id, second.id, 'should return the same proposal');
+    assert.equal(second._deduplicated, true, 'should be flagged as deduplicated');
+  });
+
+  it('should deduplicate case-insensitively', () => {
+    const first = createProposal(db, {
+      domain: 'dedup-test-case',
+      title: 'Fix Firestore rules',
+      body: 'Allow authenticated users read access',
+      effort: 'small',
+      recommendation: 'greenlight',
+      source: 'scan-cycle-1',
+    });
+
+    const second = createProposal(db, {
+      domain: 'dedup-test-case',
+      title: 'FIX Firestore rules',
+      body: 'Different description',
+      effort: 'small',
+      recommendation: 'greenlight',
+      source: 'scan-cycle-2',
+    });
+
+    assert.equal(first.id, second.id, 'should return same proposal despite case difference');
+  });
+
+  it('should NOT deduplicate across different domains', () => {
+    const first = createProposal(db, {
+      domain: 'domain-a',
+      title: 'Add favicon',
+      body: 'Favicon for domain A',
+      effort: 'small',
+      recommendation: 'greenlight',
+      source: 'scan',
+    });
+
+    const second = createProposal(db, {
+      domain: 'domain-b',
+      title: 'Add favicon',
+      body: 'Favicon for domain B',
+      effort: 'small',
+      recommendation: 'greenlight',
+      source: 'scan',
+    });
+
+    assert.notEqual(first.id, second.id, 'different domains should create separate proposals');
+  });
+
+  it('should allow re-proposing after a proposal is shelved', () => {
+    const first = createProposal(db, {
+      domain: 'dedup-resolved',
+      title: 'Investigate issue',
+      body: 'First attempt',
+      effort: 'small',
+      recommendation: 'greenlight',
+      source: 'scan-1',
+    });
+
+    // Shelve the first one
+    resolveProposal(db, first.id, 'shelved', 'Not now');
+
+    const second = createProposal(db, {
+      domain: 'dedup-resolved',
+      title: 'Investigate issue',
+      body: 'Re-proposed after shelving',
+      effort: 'small',
+      recommendation: 'greenlight',
+      source: 'scan-2',
+    });
+
+    assert.notEqual(first.id, second.id, 'should create a new proposal since original was resolved');
+    assert.equal(second._deduplicated, undefined, 'should not be flagged as deduplicated');
+  });
+
+  it('should NOT deduplicate against greenlit proposals (still active)', () => {
+    const first = createProposal(db, {
+      domain: 'dedup-greenlit',
+      title: 'Deploy update',
+      body: 'First version',
+      effort: 'small',
+      recommendation: 'greenlight',
+      source: 'scan-1',
+    });
+
+    resolveProposal(db, first.id, 'greenlit', 'Approved');
+
+    const second = createProposal(db, {
+      domain: 'dedup-greenlit',
+      title: 'Deploy update',
+      body: 'Re-proposed while greenlit',
+      effort: 'small',
+      recommendation: 'greenlight',
+      source: 'scan-2',
+    });
+
+    assert.equal(first.id, second.id, 'should deduplicate against greenlit (still in pipeline)');
+  });
+
+  it('findDuplicate should return null when no match', () => {
+    const result = findDuplicate(db, 'nonexistent-domain', 'Nonexistent title');
+    assert.equal(result, null);
   });
 });

@@ -1,4 +1,4 @@
-const SLEEP_ALLOWED = new Set(['scan', 'research', 'draft', 'test', 'maintenance', 'analyze']);
+const SLEEP_ALLOWED = new Set(['scan', 'research', 'draft', 'test', 'maintenance', 'analyze', 'sandbox']);
 const PAUSE_ALLOWED = new Set(['scan']);
 
 /**

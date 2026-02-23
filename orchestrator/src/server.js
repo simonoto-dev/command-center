@@ -10,7 +10,7 @@ import { generateBrief } from './brief.js';
 import { sendNotification } from './notify.js';
 import { runHealthScan } from './scan-runner.js';
 import { dispatch } from './openclaw.js';
-import { analyzeHealthTask, researchTask, draftProposalTask, overnightScanTask, careerResearchTask } from './agent-tasks.js';
+import { analyzeHealthTask, researchTask, draftProposalTask, overnightScanTask, careerResearchTask, sandboxExecuteTask, strategySynthesisTask, contentDraftTask } from './agent-tasks.js';
 import { installCron, uninstallCron, listCron } from './cron-setup.js';
 import { checkAllNodes, loadNodes } from './nodes.js';
 import { getSchedule, setSchedule, startScheduler } from './sleep-scheduler.js';
@@ -234,6 +234,23 @@ export function createServer({ dbPath }) {
       case 'career-research':
         task = careerResearchTask(db);
         break;
+      case 'strategy-synthesis':
+        task = strategySynthesisTask(db);
+        break;
+      case 'content-draft':
+        task = contentDraftTask(db, req.body.platform);
+        break;
+      case 'sandbox-execute': {
+        const proposalId = req.body.proposalId;
+        if (!proposalId) return res.status(400).json({ error: 'proposalId is required for sandbox-execute' });
+        const proposals = listProposals(db, { status: 'greenlit' });
+        const proposal = proposals.find(p => p.id === Number(proposalId));
+        if (!proposal) return res.status(404).json({ error: `No greenlit proposal with id ${proposalId}` });
+        const projects = JSON.parse((await import('node:fs')).readFileSync(new URL('../projects.json', import.meta.url), 'utf-8'));
+        const project = projects[domain] || null;
+        task = sandboxExecuteTask(proposal, project);
+        break;
+      }
       default:
         return res.status(400).json({ error: `Unknown taskType: ${taskType}` });
     }
@@ -267,6 +284,29 @@ export function createServer({ dbPath }) {
           });
         }
 
+        // Store strategy synthesis as a dossier entry
+        if (taskType === 'strategy-synthesis' && parsed.summary) {
+          addEntry(db, {
+            topicId: 'strategy-memo',
+            category: 'strategy',
+            findings: parsed.summary + '\n\nPriorities: ' + (parsed.priorities || []).map(p => p.title).join(', '),
+            relevance: 'high',
+            source: `openclaw:strategy-synthesis@${result.node || 'pi1'}`,
+          });
+        }
+
+        // Auto-create proposals from content drafts
+        if (taskType === 'content-draft' && parsed.drafts?.length > 0) {
+          createProposal(db, {
+            domain: 'content',
+            title: `Content batch: ${parsed.drafts.length} ${parsed.platform || 'general'} posts ready`,
+            body: parsed.drafts.map(d => `[${d.type}] ${d.hook}`).join('\n'),
+            effort: 'small',
+            recommendation: 'greenlight',
+            source: `openclaw:content-draft@${result.node || 'pi1'}`,
+          });
+        }
+
         const proposals = parsed.proposals || (parsed.suggested_proposal ? [parsed.suggested_proposal] : []);
         if (parsed.title && parsed.body) proposals.push(parsed);
         for (const p of proposals) {
@@ -287,6 +327,69 @@ export function createServer({ dbPath }) {
     }
 
     res.json(result);
+  });
+
+  // --- POST /sandbox/run ---
+  // Auto-executes the next greenlit proposal in the sandbox
+  app.post('/sandbox/run', async (_req, res) => {
+    const greenlit = listProposals(db, { status: 'greenlit' });
+    if (greenlit.length === 0) {
+      return res.json({ ok: true, message: 'No greenlit proposals to execute', executed: 0 });
+    }
+
+    const proposal = greenlit[0]; // oldest first
+    const projects = JSON.parse((await import('node:fs')).readFileSync(new URL('../projects.json', import.meta.url), 'utf-8'));
+    const project = projects[proposal.domain] || null;
+
+    if (!project?.repo) {
+      return res.json({ ok: false, message: `No repo configured for domain "${proposal.domain}"`, proposalId: proposal.id });
+    }
+
+    const task = sandboxExecuteTask(proposal, project);
+    const result = await dispatch(db, task);
+
+    // Parse result and update proposal status
+    if (result.ok && result.response) {
+      try {
+        // Try to find JSON in the response — might be in first payload, later payload, or wrapped in code fences
+        let text = result.response;
+        let parsed;
+
+        // Try all payloads from the raw response
+        const payloads = result.raw?.result?.payloads || result.raw?.payloads || [];
+        for (const p of payloads) {
+          if (!p?.text) continue;
+          let candidate = p.text;
+          const fenceMatch = candidate.match(/```(?:json)?\s*([\s\S]*?)```/);
+          if (fenceMatch) candidate = fenceMatch[1];
+          try { parsed = JSON.parse(candidate.trim()); break; } catch {}
+        }
+
+        // Fallback: try the normalized response text
+        if (!parsed) {
+          const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+          if (fenceMatch) text = fenceMatch[1];
+          parsed = JSON.parse(text.trim());
+        }
+
+        if (parsed.status === 'success') {
+          resolveProposal(db, proposal.id, 'shipped', `Sandbox: ${parsed.summary || 'Implemented successfully'}. Branch: ${parsed.branch || 'unknown'}`);
+          logAction(db, { agent: 'sandbox', action: 'sandbox', domain: proposal.domain, detail: `Proposal #${proposal.id} executed successfully` });
+        } else if (parsed.status === 'failed') {
+          resolveProposal(db, proposal.id, 'shelved', `Sandbox failed: ${parsed.summary || 'see logs'}`);
+          logAction(db, { agent: 'sandbox', action: 'sandbox', domain: proposal.domain, detail: `Proposal #${proposal.id} sandbox failed — shelved: ${parsed.summary || 'unknown'}` });
+        } else {
+          logAction(db, { agent: 'sandbox', action: 'sandbox', domain: proposal.domain, detail: `Proposal #${proposal.id} sandbox result: ${parsed.status} — ${parsed.summary || 'see logs'}` });
+        }
+
+        res.json({ ok: true, proposalId: proposal.id, sandboxResult: parsed, durationMs: result.durationMs });
+      } catch {
+        logAction(db, { agent: 'sandbox', action: 'sandbox', domain: proposal.domain, detail: `Proposal #${proposal.id} sandbox completed but response unparseable` });
+        res.json({ ok: true, proposalId: proposal.id, rawResponse: result.response?.slice(0, 500), durationMs: result.durationMs });
+      }
+    } else {
+      res.json({ ok: false, proposalId: proposal.id, error: result.error, durationMs: result.durationMs });
+    }
   });
 
   // --- POST /cron/install ---
@@ -415,6 +518,84 @@ export function createServer({ dbPath }) {
     } catch (err) {
       res.status(400).json({ error: err.message });
     }
+  });
+
+  // --- GET /progress ---
+  // Business progress report: proposal throughput, research velocity,
+  // content output, and system health over rolling windows.
+  app.get('/progress', (_req, res) => {
+    // Proposal throughput
+    const allProposals = listProposals(db, {});
+    const now = new Date();
+    const weekAgo = new Date(now - 7 * 86400000).toISOString();
+    const monthAgo = new Date(now - 30 * 86400000).toISOString();
+
+    const thisWeek = allProposals.filter(p => p.created_at >= weekAgo);
+    const thisMonth = allProposals.filter(p => p.created_at >= monthAgo);
+    const shipped = allProposals.filter(p => p.status === 'shipped');
+    const shippedThisMonth = shipped.filter(p => p.resolved_at && p.resolved_at >= monthAgo);
+    const greenlit = allProposals.filter(p => p.status === 'greenlit');
+    const pending = allProposals.filter(p => p.status === 'pending');
+    const rejected = allProposals.filter(p => p.status === 'rejected' || p.status === 'shelved');
+
+    // Research velocity — dossier entries over time
+    const recentResearch = getRecentEntries(db, 100);
+    const researchThisWeek = recentResearch.filter(e => e.created_at >= weekAgo);
+    const researchThisMonth = recentResearch.filter(e => e.created_at >= monthAgo);
+    const topicsCovered = new Set(researchThisMonth.map(e => e.topic_id));
+
+    // Content output
+    const contentProposals = allProposals.filter(p => p.domain === 'content');
+    const contentThisWeek = contentProposals.filter(p => p.created_at >= weekAgo);
+
+    // API usage
+    const budget = getBudgetStatus(db);
+    const usageRows = db.prepare(`
+      SELECT DATE(created_at) as day, COUNT(*) as calls, SUM(cost) as cost
+      FROM api_usage WHERE created_at >= ? GROUP BY DATE(created_at) ORDER BY day
+    `).all(monthAgo);
+
+    // Proposal pipeline funnel
+    const funnel = {
+      total: allProposals.length,
+      pending: pending.length,
+      greenlit: greenlit.length,
+      shipped: shipped.length,
+      rejected: rejected.length,
+      shelved: allProposals.filter(p => p.status === 'shelved').length,
+    };
+
+    // Per-domain breakdown
+    const domains = {};
+    for (const p of allProposals) {
+      if (!domains[p.domain]) domains[p.domain] = { total: 0, shipped: 0, pending: 0 };
+      domains[p.domain].total++;
+      if (p.status === 'shipped') domains[p.domain].shipped++;
+      if (p.status === 'pending') domains[p.domain].pending++;
+    }
+
+    res.json({
+      generated_at: now.toISOString(),
+      proposals: {
+        this_week: thisWeek.length,
+        this_month: thisMonth.length,
+        shipped_this_month: shippedThisMonth.length,
+        funnel,
+        by_domain: domains,
+      },
+      research: {
+        entries_this_week: researchThisWeek.length,
+        entries_this_month: researchThisMonth.length,
+        topics_covered_this_month: topicsCovered.size,
+        total_topics: getTopics().length,
+      },
+      content: {
+        drafts_this_week: contentThisWeek.length,
+        total_drafts: contentProposals.length,
+      },
+      budget,
+      daily_usage: usageRows,
+    });
   });
 
   // --- GET /anomalies ---

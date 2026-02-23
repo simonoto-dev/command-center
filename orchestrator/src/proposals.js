@@ -1,7 +1,26 @@
-const VALID_RESOLUTIONS = ['greenlit', 'modified', 'rejected', 'shelved', 'expired'];
+const VALID_RESOLUTIONS = ['greenlit', 'modified', 'rejected', 'shelved', 'expired', 'shipped'];
 
 /**
- * Create a new proposal.
+ * Check if a similar proposal already exists (pending or greenlit) for the same domain.
+ * Uses case-insensitive title comparison to catch duplicates like
+ * "Add favicon" vs "Add Favicon" or exact repeats across scan cycles.
+ * @param {import('better-sqlite3').Database} db
+ * @param {string} domain
+ * @param {string} title
+ * @returns {object|null} The existing proposal, or null
+ */
+export function findDuplicate(db, domain, title) {
+  return db.prepare(`
+    SELECT * FROM proposals
+    WHERE domain = ? AND LOWER(title) = LOWER(?) AND status IN ('pending', 'greenlit')
+    ORDER BY created_at DESC
+    LIMIT 1
+  `).get(domain, title) || null;
+}
+
+/**
+ * Create a new proposal. Returns the existing proposal if a duplicate
+ * (same domain + title, still pending/greenlit) already exists.
  * @param {import('better-sqlite3').Database} db
  * @param {object} opts
  * @param {string} opts.domain
@@ -10,9 +29,16 @@ const VALID_RESOLUTIONS = ['greenlit', 'modified', 'rejected', 'shelved', 'expir
  * @param {string} opts.effort
  * @param {string} opts.recommendation
  * @param {string} opts.source
- * @returns {object} The created proposal row
+ * @returns {{ proposal: object, deduplicated: boolean }|object} The proposal row (with deduplicated flag if caller checks, or just the row for backwards compat)
  */
 export function createProposal(db, { domain, title, body, effort, recommendation, source }) {
+  // Dedup: skip insert if a pending/greenlit proposal with the same domain+title exists
+  const existing = findDuplicate(db, domain, title);
+  if (existing) {
+    existing._deduplicated = true;
+    return existing;
+  }
+
   const stmt = db.prepare(`
     INSERT INTO proposals (domain, title, body, effort, recommendation, source)
     VALUES (?, ?, ?, ?, ?, ?)

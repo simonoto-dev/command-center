@@ -50,6 +50,16 @@ export function buildCronLines() {
     `45 */3 * * * curl -sf -X POST ${ORCHESTRATOR_URL}/sandbox/run >> /tmp/simonoto-cron.log 2>&1 ${CRON_TAG}`,
   );
 
+  // Strategy synthesis — weekly on Sunday at 6am, synthesizes dossier into action plan
+  lines.push(
+    `0 6 * * 0 curl -sf -X POST ${ORCHESTRATOR_URL}/dispatch -H 'Content-Type: application/json' -d '{"taskType":"strategy-synthesis","domain":"career"}' >> /tmp/simonoto-cron.log 2>&1 ${CRON_TAG}`,
+  );
+
+  // Content drafts — 3x per week (Mon/Wed/Fri at 5am), generates social media content
+  lines.push(
+    `0 5 * * 1,3,5 curl -sf -X POST ${ORCHESTRATOR_URL}/dispatch -H 'Content-Type: application/json' -d '{"taskType":"content-draft","domain":"content"}' >> /tmp/simonoto-cron.log 2>&1 ${CRON_TAG}`,
+  );
+
   // Morning brief trigger at 7:30am (prepares brief before wake)
   lines.push(
     `30 7 * * * curl -sf ${ORCHESTRATOR_URL}/brief >> /tmp/simonoto-cron.log 2>&1 ${CRON_TAG}`,
