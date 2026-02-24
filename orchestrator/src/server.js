@@ -10,13 +10,14 @@ import { generateBrief } from './brief.js';
 import { sendNotification } from './notify.js';
 import { runHealthScan } from './scan-runner.js';
 import { dispatch } from './openclaw.js';
-import { analyzeHealthTask, researchTask, draftProposalTask, overnightScanTask, careerResearchTask, sandboxExecuteTask, strategySynthesisTask, contentDraftTask } from './agent-tasks.js';
+import { analyzeHealthTask, researchTask, draftProposalTask, overnightScanTask, careerResearchTask, sandboxExecuteTask, strategySynthesisTask, contentDraftTask, syncLicensingScanTask } from './agent-tasks.js';
 import { installCron, uninstallCron, listCron } from './cron-setup.js';
 import { checkAllNodes, loadNodes } from './nodes.js';
 import { getSchedule, setSchedule, startScheduler } from './sleep-scheduler.js';
 import { getBudgetStatus, setCeiling, setCostPerCall } from './budget.js';
 import { checkAnomalies, getAnomalyThresholds, setAnomalyThreshold } from './anomaly.js';
 import { getRecentEntries, getEntries, getTopics, getReferences, addEntry } from './dossier.js';
+import { addRevenue, getRevenueSummary, getMonthlyTrend, addGig, listGigs, updateGig, addOpportunity, listOpportunities, updateOpportunity, getUpcomingDeadlines } from './revenue.js';
 
 /**
  * Create and configure the Express API server.
@@ -240,6 +241,9 @@ export function createServer({ dbPath }) {
       case 'content-draft':
         task = contentDraftTask(db, req.body.platform);
         break;
+      case 'sync-licensing-scan':
+        task = syncLicensingScanTask(db);
+        break;
       case 'sandbox-execute': {
         const proposalId = req.body.proposalId;
         if (!proposalId) return res.status(400).json({ error: 'proposalId is required for sandbox-execute' });
@@ -293,6 +297,31 @@ export function createServer({ dbPath }) {
             relevance: 'high',
             source: `openclaw:strategy-synthesis@${result.node || 'pi1'}`,
           });
+        }
+
+        // Store sync licensing opportunities
+        if (taskType === 'sync-licensing-scan' && parsed.opportunities?.length > 0) {
+          for (const opp of parsed.opportunities) {
+            addOpportunity(db, {
+              type: opp.type || 'sync-licensing',
+              title: opp.title,
+              platform: opp.platform,
+              url: opp.url,
+              deadline: opp.deadline,
+              details: opp.details + (opp.estimated_payout ? ` | Payout: ${opp.estimated_payout}` : ''),
+              source: `openclaw:sync-licensing-scan@${result.node || 'pi1'}`,
+            });
+          }
+          // Also store market insights in the dossier
+          if (parsed.market_insights) {
+            addEntry(db, {
+              topicId: 'sync-licensing',
+              category: 'revenue',
+              findings: parsed.market_insights,
+              relevance: 'high',
+              source: `openclaw:sync-licensing-scan@${result.node || 'pi1'}`,
+            });
+          }
         }
 
         // Auto-create proposals from content drafts
@@ -624,6 +653,92 @@ export function createServer({ dbPath }) {
   app.get('/dossier/recent', (req, res) => {
     const limit = req.query.limit ? Number(req.query.limit) : 20;
     res.json(getRecentEntries(db, limit));
+  });
+
+  // --- Revenue endpoints ---
+
+  // GET /revenue — summary for current month (or ?since=YYYY-MM-DD)
+  app.get('/revenue', (req, res) => {
+    res.json(getRevenueSummary(db, req.query.since));
+  });
+
+  // POST /revenue — log a revenue entry
+  app.post('/revenue', (req, res) => {
+    const { type, amount, description, date, recurring, source } = req.body;
+    if (!type || amount === undefined || !description || !date) {
+      return res.status(400).json({ error: 'type, amount, description, and date are required' });
+    }
+    const entry = addRevenue(db, { type, amount: Number(amount), description, date, recurring, source });
+    logAction(db, { agent: source || 'api', action: 'log_revenue', domain: 'revenue', detail: `${type}: $${amount} — ${description}` });
+    res.status(201).json(entry);
+  });
+
+  // GET /revenue/trend — monthly revenue trend
+  app.get('/revenue/trend', (req, res) => {
+    const months = req.query.months ? Number(req.query.months) : 6;
+    res.json(getMonthlyTrend(db, months));
+  });
+
+  // --- Gig endpoints ---
+
+  // GET /gigs
+  app.get('/gigs', (req, res) => {
+    res.json(listGigs(db, { status: req.query.status, limit: req.query.limit ? Number(req.query.limit) : undefined }));
+  });
+
+  // POST /gigs
+  app.post('/gigs', (req, res) => {
+    const { title, venue, date, pay, notes } = req.body;
+    if (!title || !date) {
+      return res.status(400).json({ error: 'title and date are required' });
+    }
+    const gig = addGig(db, { title, venue, date, pay: pay ? Number(pay) : null, notes });
+    logAction(db, { agent: 'api', action: 'add_gig', domain: 'gigs', detail: `${title} at ${venue || 'TBD'} on ${date}` });
+    res.status(201).json(gig);
+  });
+
+  // POST /gigs/:id
+  app.post('/gigs/:id', (req, res) => {
+    const gig = updateGig(db, Number(req.params.id), req.body);
+    if (!gig) return res.status(404).json({ error: 'gig not found' });
+    res.json(gig);
+  });
+
+  // --- Opportunity endpoints ---
+
+  // GET /opportunities
+  app.get('/opportunities', (req, res) => {
+    res.json(listOpportunities(db, {
+      type: req.query.type,
+      status: req.query.status,
+      limit: req.query.limit ? Number(req.query.limit) : undefined,
+    }));
+  });
+
+  // POST /opportunities
+  app.post('/opportunities', (req, res) => {
+    const { type, title, platform, url, deadline, details, source } = req.body;
+    if (!type || !title) {
+      return res.status(400).json({ error: 'type and title are required' });
+    }
+    const opp = addOpportunity(db, { type, title, platform, url, deadline, details, source });
+    logAction(db, { agent: source || 'api', action: 'add_opportunity', domain: 'opportunities', detail: `${type}: ${title}` });
+    res.status(201).json(opp);
+  });
+
+  // POST /opportunities/:id
+  app.post('/opportunities/:id', (req, res) => {
+    const opp = updateOpportunity(db, Number(req.params.id), req.body);
+    if (!opp) return res.status(404).json({ error: 'opportunity not found' });
+    res.json(opp);
+  });
+
+  // --- Deadlines ---
+
+  // GET /deadlines — upcoming deadlines across gigs and opportunities
+  app.get('/deadlines', (req, res) => {
+    const days = req.query.days ? Number(req.query.days) : 14;
+    res.json(getUpcomingDeadlines(db, days));
   });
 
   // --- POST /anomalies/threshold ---

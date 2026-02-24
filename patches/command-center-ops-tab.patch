@@ -1,0 +1,204 @@
+diff --git a/apps/command-center.html b/apps/command-center.html
+index 28915c4..72a8f94 100644
+--- a/apps/command-center.html
++++ b/apps/command-center.html
+@@ -102,6 +102,28 @@ input,textarea,select,button{font-family:inherit;font-size:inherit;}
+   .two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+   .sched-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;}
+ }
++/* Ops tab */
++.ops-status{display:flex;gap:8px;margin-bottom:12px;}
++.ops-pill{padding:4px 10px;border-radius:10px;font-size:11px;font-weight:600;border:1px solid var(--border);}
++.ops-pill-ok{border-color:var(--green);color:var(--green);background:rgba(74,222,128,0.1);}
++.ops-pill-warn{border-color:var(--accent);color:var(--accent);background:var(--accent-glow);}
++.ops-pill-off{border-color:var(--red);color:var(--red);background:rgba(248,113,113,0.1);}
++.ops-pill-muted{border-color:var(--border);color:var(--muted);}
++.proposal{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;}
++.proposal-title{font-weight:600;font-size:13px;margin-bottom:4px;}
++.proposal-body{color:var(--muted);font-size:12px;line-height:1.4;margin-bottom:8px;}
++.proposal-meta{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px;}
++.proposal-actions{display:flex;gap:6px;}
++.btn-approve{background:var(--green);color:#000;border:none;border-radius:6px;padding:4px 12px;font-size:11px;font-weight:600;cursor:pointer;}
++.btn-reject{background:transparent;border:1px solid var(--red);color:var(--red);border-radius:6px;padding:4px 12px;font-size:11px;font-weight:600;cursor:pointer;}
++.btn-shelve{background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:4px 12px;font-size:11px;cursor:pointer;}
++.ops-section{margin-bottom:16px;}
++.ops-section-title{font-weight:600;font-size:13px;margin-bottom:8px;display:flex;align-items:center;gap:6px;}
++.dossier-entry{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:6px;font-size:12px;line-height:1.4;}
++.dossier-topic{color:var(--accent);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;}
++.dossier-text{color:var(--muted);margin-top:4px;}
++.ops-loading{text-align:center;padding:40px;color:var(--muted);font-size:13px;}
++.ops-error{text-align:center;padding:20px;color:var(--red);font-size:12px;background:rgba(248,113,113,0.1);border-radius:8px;margin-bottom:12px;}
+ ::-webkit-scrollbar{width:6px;}
+ ::-webkit-scrollbar-track{background:var(--bg);}
+ ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+@@ -543,15 +565,168 @@ function renderBridge(){
+   );
+ }
+ 
++/* ===== OPS TAB — Team Simonoto Orchestrator ===== */
++const OPS_URL="https://bones.professoroffunk.com";
++let opsCache={brief:null,status:null,proposals:null,dossier:null,lastFetch:0};
++
++async function opsApi(path,opts={}){
++  const url=OPS_URL+path;
++  const fetchOpts={headers:{"Content-Type":"application/json"},...opts};
++  if(opts.body)fetchOpts.body=JSON.stringify(opts.body);
++  try{
++    const res=await fetch(url,fetchOpts);
++    return{ok:res.ok,data:await res.json().catch(()=>null)};
++  }catch(e){return{ok:false,data:{error:e.message}};}
++}
++
++async function loadOpsData(force){
++  const now=Date.now();
++  if(!force&&opsCache.lastFetch&&now-opsCache.lastFetch<30000)return opsCache;
++  try{
++    const[status,proposals,dossier,brief]=await Promise.all([
++      opsApi("/status"),
++      opsApi("/proposals?status=pending&limit=20"),
++      opsApi("/dossier/recent?limit=10"),
++      opsApi("/brief"),
++    ]);
++    opsCache={status:status.data,proposals:proposals.data,dossier:dossier.data,brief:brief.data,lastFetch:now,error:null};
++  }catch(e){opsCache.error=e.message;}
++  return opsCache;
++}
++
++async function resolveOpsProposal(id,status,note){
++  const res=await opsApi(`/proposals/${id}/resolve`,{method:"POST",body:{status,note}});
++  if(res.ok){await loadOpsData(true);render();}
++  return res;
++}
++
++function renderOps(){
++  const wrap=h("div",{class:"pad"});
++  const cache=opsCache;
++
++  // Header
++  wrap.appendChild(h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px"}},
++    h("h2",{style:{fontFamily:"'DM Serif Display',Georgia,serif",fontSize:"20px",margin:"0"}},"Team Simonoto"),
++    h("button",{class:"btn-outline",style:{fontSize:"10px"},onClick:async()=>{wrap.innerHTML='<div class="ops-loading">Refreshing...</div>';await loadOpsData(true);render();}},"↻ Refresh")
++  ));
++
++  // If not loaded yet, show loading and trigger fetch
++  if(!cache.lastFetch){
++    wrap.appendChild(h("div",{class:"ops-loading"},"Connecting to orchestrator..."));
++    loadOpsData().then(()=>render());
++    return wrap;
++  }
++
++  if(cache.error){
++    wrap.appendChild(h("div",{class:"ops-error"},"⚠ "+cache.error+" — Is the Pi online?"));
++  }
++
++  // System status pills
++  const st=cache.status||{};
++  const paceClass=st.pace==="full"?"ops-pill-ok":st.pace==="stop"?"ops-pill-off":st.pace==="pause"?"ops-pill-warn":"ops-pill-muted";
++  const modeClass=st.mode==="awake"?"ops-pill-ok":"ops-pill-muted";
++  const budget=st.budget||{};
++  const budgetPct=budget.ceiling?Math.round((budget.spent||0)/budget.ceiling*100):0;
++  const budgetClass=budgetPct>80?"ops-pill-warn":budgetPct>95?"ops-pill-off":"ops-pill-ok";
++
++  wrap.appendChild(h("div",{class:"ops-status"},
++    h("span",{class:"ops-pill "+paceClass},"⚡ "+( st.pace||"?")),
++    h("span",{class:"ops-pill "+modeClass},(st.mode==="sleep"?"🌙":"☀️")+" "+(st.mode||"?")),
++    h("span",{class:"ops-pill "+budgetClass},"💰 $"+(budget.spent||0).toFixed(2)+"/$"+(budget.ceiling||"?"))
++  ));
++
++  // Brief summary (if available)
++  const brief=cache.brief||{};
++  const summary=brief.summary||{};
++  if(summary.total_pending||summary.quick_wins||summary.content_ready){
++    wrap.appendChild(h("div",{class:"card",style:{marginBottom:"12px"}},
++      h("div",{style:{fontWeight:"600",fontSize:"13px",marginBottom:"8px"}},"📋 Morning Brief"),
++      h("div",{class:"stats",style:{marginBottom:"0"}},
++        h("div",{class:"stat"},h("div",{class:"stat-label"},"Pending"),h("div",{class:"stat-value"},""+(summary.total_pending||0))),
++        h("div",{class:"stat"},h("div",{class:"stat-label"},"Quick Wins"),h("div",{class:"stat-value"},""+(summary.quick_wins||0))),
++        h("div",{class:"stat"},h("div",{class:"stat-label"},"Content"),h("div",{class:"stat-value"},""+(summary.content_ready||0))),
++        h("div",{class:"stat"},h("div",{class:"stat-label"},"In Pipeline"),h("div",{class:"stat-value"},""+(summary.in_pipeline||0)))
++      )
++    ));
++  }
++
++  // Latest strategy memo
++  const strategy=brief.latest_strategy;
++  if(strategy&&strategy.findings){
++    wrap.appendChild(h("div",{class:"ops-section"},
++      h("div",{class:"ops-section-title"},"🎯 Latest Strategy"),
++      h("div",{class:"card",style:{fontSize:"12px",lineHeight:"1.5",color:"var(--muted)"}},strategy.findings)
++    ));
++  }
++
++  // Pending proposals — the action center
++  const proposals=Array.isArray(cache.proposals)?cache.proposals:[];
++  if(proposals.length>0){
++    wrap.appendChild(h("div",{class:"ops-section"},
++      h("div",{class:"ops-section-title"},"📨 Proposals Awaiting Review (",proposals.length+")"),
++      ...proposals.map(p=>h("div",{class:"proposal"},
++        h("div",{class:"proposal-title"},p.title),
++        h("div",{class:"proposal-body"},p.body.length>200?p.body.slice(0,200)+"...":p.body),
++        h("div",{class:"proposal-meta"},
++          h("span",{class:"badge badge-progress"},p.domain),
++          h("span",{style:{fontSize:"10px",color:"var(--muted)"}},p.effort),
++          p.recommendation==="greenlight"?h("span",{style:{fontSize:"10px",color:"var(--green)",fontWeight:"600"}},"✓ Recommended"):""
++        ),
++        h("div",{class:"proposal-actions"},
++          h("button",{class:"btn-approve",onClick:()=>resolveOpsProposal(p.id,"greenlit","Approved from Command Center")},"✓ Greenlight"),
++          h("button",{class:"btn-shelve",onClick:()=>resolveOpsProposal(p.id,"shelved","Shelved from Command Center")},"Shelve"),
++          h("button",{class:"btn-reject",onClick:()=>resolveOpsProposal(p.id,"rejected","Rejected from Command Center")},"✗ Reject")
++        )
++      ))
++    ));
++  }else{
++    wrap.appendChild(h("div",{class:"ops-section"},
++      h("div",{class:"ops-section-title"},"📨 Proposals"),
++      h("div",{style:{color:"var(--muted)",fontSize:"12px",padding:"12px 0"}},"No pending proposals. The system is up to date.")
++    ));
++  }
++
++  // Recent career intelligence
++  const dossier=Array.isArray(cache.dossier)?cache.dossier:[];
++  if(dossier.length>0){
++    wrap.appendChild(h("div",{class:"ops-section"},
++      h("div",{class:"ops-section-title"},"🧠 Recent Intelligence"),
++      ...dossier.slice(0,5).map(e=>h("div",{class:"dossier-entry"},
++        h("div",{class:"dossier-topic"},e.topic_id+" · "+e.category+(e.relevance==="high"?" 🔥":"")),
++        h("div",{class:"dossier-text"},e.findings.length>250?e.findings.slice(0,250)+"...":e.findings)
++      ))
++    ));
++  }
++
++  // Overnight activity summary
++  const logs=brief.overnight_activity||[];
++  const blocked=logs.filter(l=>l.blocked);
++  if(logs.length>0){
++    wrap.appendChild(h("div",{class:"ops-section"},
++      h("div",{class:"ops-section-title"},"🌙 Overnight Activity"),
++      h("div",{style:{color:"var(--muted)",fontSize:"12px"}},
++        logs.length+" actions"+(blocked.length>0?" · "+blocked.length+" blocked":"")
++      ),
++      ...logs.slice(0,8).map(l=>h("div",{style:{fontSize:"11px",padding:"3px 0",borderBottom:"1px solid var(--border)",display:"flex",gap:"6px"}},
++        h("span",{style:{color:l.blocked?"var(--red)":"var(--muted)",flexShrink:"0"}},l.blocked?"✗":"·"),
++        h("span",{style:{color:"var(--blue)",flexShrink:"0",width:"60px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},l.agent),
++        h("span",{style:{color:"var(--muted)",flex:"1",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},l.detail||l.action)
++      ))
++    ));
++  }
++
++  return wrap;
++}
++
+ function render(){
+   const app=document.getElementById("app");app.innerHTML="";const tab=data.tab||0;
+-  const tabs=[{icon:"🏠",label:"Home"},{icon:"📁",label:"Projects"},{icon:"💡",label:"Ideas"},{icon:"📅",label:"Schedule"},{icon:"📝",label:"Notes"}];
++  const tabs=[{icon:"🏠",label:"Home"},{icon:"📁",label:"Projects"},{icon:"💡",label:"Ideas"},{icon:"📅",label:"Schedule"},{icon:"📝",label:"Notes"},{icon:"🤖",label:"Ops"}];
+   app.appendChild(h("div",{class:"header"},
+     h("div",{class:"logo"},h("span",{class:"logo-icon"},"🎛️"),h("span",{class:"logo-name"},"SIMONOTO"),h("span",{class:"logo-sub"},"COMMAND CENTER")),
+     h("button",{class:"header-reset",onClick:()=>{if(confirm("Reset all data?")){localStorage.removeItem(STORAGE_KEY);loadData();render();}}},"Reset")
+   ));
+   const content=h("div",{class:"content"});
+-  switch(tab){case 0:content.appendChild(renderDashboard());break;case 1:content.appendChild(renderProjects());break;case 2:content.appendChild(renderIdeas());break;case 3:content.appendChild(renderSchedule());break;case 4:content.appendChild(renderBridge());break;}
++  switch(tab){case 0:content.appendChild(renderDashboard());break;case 1:content.appendChild(renderProjects());break;case 2:content.appendChild(renderIdeas());break;case 3:content.appendChild(renderSchedule());break;case 4:content.appendChild(renderBridge());break;case 5:content.appendChild(renderOps());break;}
+   app.appendChild(content);
+   app.appendChild(h("div",{class:"bottom-nav"},
+     ...tabs.map((t,i)=>h("button",{class:"nav-btn"+(tab===i?" active":""),onClick:()=>setTab(i)},h("span",{class:"nav-icon"},t.icon),t.label))

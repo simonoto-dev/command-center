@@ -217,6 +217,64 @@ Respond with a JSON object:
 }
 
 /**
+ * Scan sync licensing platforms for open briefs matching Simon's style.
+ * This is the highest-leverage revenue activity: one sync placement can
+ * equal months of lesson income.
+ * @param {import('better-sqlite3').Database} db
+ * @returns {object} Task for dispatch()
+ */
+export function syncLicensingScanTask(db) {
+  const refs = getReferences();
+  const styleContext = refs.map(r => `- ${r.name}: ${r.note}`).join('\n');
+
+  return {
+    action: 'research',
+    domain: 'career',
+    agentName: 'agent:sync-licensing-scanner',
+    message: `You are a sync licensing opportunity scanner for Team Simonoto. Simon is an independent musician/producer who creates funk, soul, and groove-based music.
+
+ARTIST STYLE REFERENCES:
+${styleContext}
+
+TASK: Search for current sync licensing opportunities that match Simon's musical style. Focus on:
+
+1. **Music libraries accepting submissions**: Songtradr, Musicbed, Artlist, Epidemic Sound, Marmoset, Music Vine, Audiosocket
+2. **Open briefs**: TV/film/advertising briefs looking for funk, soul, R&B, groove, instrumental, or similar genres
+3. **Playlist/curator opportunities**: Spotify editorial pitching windows, YouTube audio library submissions
+4. **Grants and competitions**: Music grants, production competitions, artist development programs
+
+For each opportunity found, provide:
+- Platform name
+- Brief/opportunity title
+- Genre/style match (how well it fits Simon's sound)
+- Deadline (if applicable)
+- Submission requirements
+- Estimated payout range
+
+Respond with a JSON object:
+{
+  "scan_date": "${new Date().toISOString().slice(0, 10)}",
+  "opportunities": [
+    {
+      "type": "sync-licensing|library-submission|playlist|grant|competition",
+      "title": "Brief/opportunity title",
+      "platform": "Platform name",
+      "url": "URL if available",
+      "deadline": "YYYY-MM-DD or null",
+      "genre_match": "high|medium|low",
+      "details": "What they're looking for + submission requirements",
+      "estimated_payout": "$X-$Y range or 'varies'"
+    }
+  ],
+  "market_insights": "Brief market observations relevant to Simon's positioning",
+  "recommended_actions": ["Specific next steps Simon should take"]
+}`,
+    options: { timeoutSeconds: 180, thinking: 'medium', sessionId: 'sync-licensing' },
+    _tier: 'medium',
+  };
+}
+
+/**
  * Execute a greenlit proposal in the sandbox.
  * Dispatches to Pi2 to clone the repo, create a branch, implement the change, test, and report.
  * @param {object} proposal - The proposal to execute

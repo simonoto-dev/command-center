@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Simonoto CC">
+<meta name="theme-color" content="#0a0a0f">
+<meta name="description" content="Simonoto Command Center — Productivity hub for Kaze">
+<title>Simonoto Command Center</title>
+<link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiU2ltb25vdG8gQ29tbWFuZCBDZW50ZXIiLCJzaG9ydF9uYW1lIjoiU2ltb25vdG8gQ0MiLCJzdGFydF91cmwiOiIuIiwiZGlzcGxheSI6InN0YW5kYWxvbmUiLCJiYWNrZ3JvdW5kX2NvbG9yIjoiIzBhMGEwZiIsInRoZW1lX2NvbG9yIjoiI0Q0OTQzQSIsImljb25zIjpbeyJzcmMiOiJkYXRhOmltYWdlL3N2Zyt4bWw7YmFzZTY0LFBITjJaeUI0Yld4dWN6MGlhSFIwY0RvdkwzZDNkeTUzTXk1dmNtY3ZNakF3TUM5emRtY2lJSFpwWlhkQ2IzZzlJakFnTUNBeE9USWdNVGt5SWo0OGNtVmpkQ0IzYVdSMGFEMGlNVGt5SWlCb1pXbG5hSFE5SWpFNU1pSWdjbmc5SWpNMklpQm1hV3hzUFNJak1FRXdRVEJHTWlBdlBqeDBaWGgwSUhnOUlqazJJaUI1UFNJeE1EQWlJR1p2Ym5RdGMybDZaVDBpTmpBaUlHWnBiR3c5SWlORU5EazBNMEVpSUhSbGVIUXRZVzVqYUc5eVBTSnRhV1JrYkdVaUlHWnZiblF0Wm1GdGFXeDVQU0puWlc5eVoybGhMSE5sY21sbUlqNERud284TDNSbGVIUStQQzl6ZG1jKyIsInNpemVzIjoiMTkyeDE5MiIsInR5cGUiOiJpbWFnZS9zdmcreG1sIn1dfQ==">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0a0a0f; --surface:#13131a; --surface2:#1a1a24; --border:#2a2a35;
+  --accent:#D4943A; --accent-glow:rgba(212,148,58,0.15); --accent-dim:#7A4A28;
+  --green:#4ade80; --red:#f87171; --blue:#60a5fa; --purple:#c084fc;
+  --text:#e8e8ef; --muted:#888899;
+  --ch1:#D4943A; --ch2:#5a9a7a; --ch3:#CDB1CC; --ch4:#ED2024; --dm:#00ccff; --ch:#ff66cc;
+  --safe-top:env(safe-area-inset-top,0px);
+  --safe-bottom:env(safe-area-inset-bottom,0px);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;overflow:hidden;}
+body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans','Segoe UI',system-ui,sans-serif;font-size:14px;line-height:1.5;}
+input,textarea,select,button{font-family:inherit;font-size:inherit;}
+.app{display:flex;flex-direction:column;height:100vh;height:100dvh;padding-top:var(--safe-top);}
+.header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 16px;display:flex;align-items:center;height:52px;flex-shrink:0;z-index:100;}
+.logo{display:flex;align-items:center;gap:8px;margin-right:auto;}
+.logo-icon{font-size:18px;}
+.logo-name{font-family:'DM Serif Display',Georgia,serif;font-size:16px;font-weight:700;color:var(--accent);}
+.logo-sub{color:var(--muted);font-size:10px;font-weight:500;display:none;}
+@media(min-width:500px){.logo-sub{display:inline;}}
+.header-reset{background:transparent;border:1px solid var(--border);border-radius:6px;padding:3px 8px;color:var(--muted);font-size:10px;cursor:pointer;}
+.bottom-nav{display:flex;background:var(--surface);border-top:1px solid var(--border);flex-shrink:0;padding-bottom:var(--safe-bottom);z-index:100;}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px 6px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:9px;font-weight:500;transition:color 0.2s;}
+.nav-btn.active{color:var(--accent);}
+.nav-btn .nav-icon{font-size:18px;line-height:1;}
+.content{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;}
+.pad{padding:16px;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px;}
+.card-top{border-top:3px solid var(--accent);}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;}
+.stat-label{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:0.5px;}
+.stat-value{font-family:'DM Serif Display',Georgia,serif;font-size:24px;font-weight:700;color:var(--text);margin:2px 0;}
+.stat-sub{color:var(--muted);font-size:11px;}
+.progress{width:100%;height:6px;background:var(--border);border-radius:3px;overflow:hidden;}
+.progress-fill{height:100%;border-radius:3px;transition:width 0.6s cubic-bezier(0.4,0,0.2,1);}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;}
+.badge-ready{background:rgba(74,222,128,0.15);color:var(--green);}
+.badge-progress{background:rgba(96,165,250,0.15);color:var(--blue);}
+.badge-blocked{background:rgba(248,113,113,0.15);color:var(--red);}
+.badge-planning{background:rgba(192,132,252,0.15);color:var(--purple);}
+.input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);outline:none;font-size:14px;}
+.input:focus{border-color:var(--accent);}
+.btn{background:var(--accent);color:#000;border:none;border-radius:8px;padding:8px 16px;font-weight:600;font-size:13px;cursor:pointer;}
+.btn-sm{padding:5px 12px;font-size:12px;}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:5px 12px;font-size:12px;cursor:pointer;}
+.btn-outline.active{border-color:var(--accent);color:var(--accent);background:var(--accent-glow);}
+.capture{display:flex;gap:8px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:10px 14px;margin-bottom:16px;}
+.capture input{flex:1;background:transparent;border:none;color:var(--text);outline:none;font-size:14px;}
+.task{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:4px;}
+.task input[type=checkbox]{accent-color:var(--accent);width:16px;height:16px;cursor:pointer;}
+.task-text{flex:1;font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.task-done .task-text{text-decoration:line-through;opacity:0.5;}
+.task-due{color:var(--accent);font-size:11px;font-weight:600;white-space:nowrap;}
+.task-del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;opacity:0.4;padding:0 4px;}
+.sched-day{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px;margin-bottom:6px;}
+.sched-day.today{border-color:var(--accent);background:var(--accent-glow);}
+.sched-header{text-align:center;margin-bottom:6px;}
+.sched-dayname{font-size:11px;text-transform:uppercase;font-weight:600;color:var(--muted);}
+.sched-day.today .sched-dayname{color:var(--accent);}
+.sched-date{font-size:16px;font-weight:700;}
+.sched-event{border-left:3px solid;border-radius:0 5px 5px 0;padding:3px 6px;margin-bottom:3px;font-size:10px;}
+.sched-event-time{font-weight:600;}
+.chat-messages{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px;}
+.chat-msg{max-width:85%;padding:10px 14px;border-radius:12px;font-size:14px;line-height:1.5;word-wrap:break-word;white-space:pre-wrap;}
+.chat-user{align-self:flex-end;background:var(--accent);color:#000;border-radius:12px 12px 4px 12px;}
+.chat-ai{align-self:flex-start;background:var(--surface2);border:1px solid var(--border);border-radius:12px 12px 12px 4px;}
+.chat-input{display:flex;gap:8px;padding:12px;border-top:1px solid var(--border);background:var(--surface);}
+.chat-input textarea{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px 12px;color:var(--text);outline:none;resize:none;font-size:14px;max-height:80px;}
+.idea-card{display:flex;gap:10px;align-items:flex-start;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:6px;}
+.idea-star{background:none;border:none;cursor:pointer;font-size:16px;padding:0;flex-shrink:0;margin-top:2px;}
+.idea-body{flex:1;min-width:0;}
+.idea-text{font-size:13px;line-height:1.4;}
+.idea-meta{display:flex;gap:8px;margin-top:3px;}
+.idea-cat{font-size:9px;text-transform:uppercase;font-weight:600;letter-spacing:0.3px;}
+.chips{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:12px;}
+.chip{padding:3px 10px;border-radius:14px;font-size:11px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted);}
+.chip.active{border-color:var(--accent);color:var(--accent);background:var(--accent-glow);}
+.timeline-bar{display:flex;gap:3px;align-items:flex-end;height:70px;margin:12px 0;}
+.tl-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;}
+.tl-bar{width:100%;border-radius:3px 3px 0 0;transition:height 0.3s;}
+.tl-label{font-size:7px;color:var(--muted);text-align:center;line-height:1.1;}
+.tl-sub{font-size:7px;font-weight:600;text-align:center;line-height:1.1;}
+.proj-tracks{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0;}
+.proj-track{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:3px 10px;font-size:12px;}
+@media(min-width:700px){
+  .stats{grid-template-columns:repeat(4,1fr);}
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .sched-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;}
+}
+/* Ops tab */
+.ops-status{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;}
+.ops-pill{padding:4px 10px;border-radius:10px;font-size:11px;font-weight:600;border:1px solid var(--border);}
+.ops-pill-ok{border-color:var(--green);color:var(--green);background:rgba(74,222,128,0.1);}
+.ops-pill-warn{border-color:var(--accent);color:var(--accent);background:var(--accent-glow);}
+.ops-pill-off{border-color:var(--red);color:var(--red);background:rgba(248,113,113,0.1);}
+.ops-pill-muted{border-color:var(--border);color:var(--muted);}
+.proposal{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;}
+.proposal-title{font-weight:600;font-size:13px;margin-bottom:4px;}
+.proposal-body{color:var(--muted);font-size:12px;line-height:1.4;margin-bottom:8px;}
+.proposal-meta{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px;}
+.proposal-actions{display:flex;gap:6px;}
+.btn-approve{background:var(--green);color:#000;border:none;border-radius:6px;padding:4px 12px;font-size:11px;font-weight:600;cursor:pointer;}
+.btn-reject{background:transparent;border:1px solid var(--red);color:var(--red);border-radius:6px;padding:4px 12px;font-size:11px;font-weight:600;cursor:pointer;}
+.btn-shelve{background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:4px 12px;font-size:11px;cursor:pointer;}
+.ops-section{margin-bottom:16px;}
+.ops-section-title{font-weight:600;font-size:13px;margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+.dossier-entry{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:6px;font-size:12px;line-height:1.4;}
+.dossier-topic{color:var(--accent);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;}
+.dossier-text{color:var(--muted);margin-top:4px;}
+.ops-loading{text-align:center;padding:40px;color:var(--muted);font-size:13px;}
+.ops-error{text-align:center;padding:20px;color:var(--red);font-size:12px;background:rgba(248,113,113,0.1);border-radius:8px;margin-bottom:12px;}
+.tldr-list{list-style:none;padding:0;margin:0;}
+.tldr-item{padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;display:flex;align-items:center;gap:8px;}
+.tldr-item:last-child{border-bottom:none;}
+.action-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:6px;display:flex;align-items:center;gap:10px;}
+.action-rank{font-size:16px;font-weight:700;color:var(--accent);width:24px;text-align:center;flex-shrink:0;}
+.action-body{flex:1;min-width:0;}
+.action-text{font-size:13px;font-weight:500;}
+.action-meta{font-size:10px;color:var(--muted);margin-top:2px;}
+.action-badge{padding:2px 8px;border-radius:8px;font-size:9px;font-weight:700;text-transform:uppercase;flex-shrink:0;}
+.action-badge-urgent{background:rgba(248,113,113,0.2);color:var(--red);}
+.action-badge-soon{background:rgba(212,148,58,0.2);color:var(--accent);}
+.action-badge-quick{background:rgba(74,222,128,0.15);color:var(--green);}
+.action-badge-content{background:rgba(192,132,252,0.15);color:var(--purple);}
+.revenue-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px;border-top:3px solid var(--green);}
+.opp-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:12px;}
+.opp-title{font-weight:600;font-size:12px;margin-bottom:2px;}
+.opp-meta{color:var(--muted);font-size:10px;display:flex;gap:8px;flex-wrap:wrap;}
+.deadline-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;}
+.deadline-row:last-child{border-bottom:none;}
+::-webkit-scrollbar{width:6px;}
+::-webkit-scrollbar-track{background:var(--bg);}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+</style>
+</head>
+<body>
+<div id="auth-gate" style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0a0a0f;">
+<div style="text-align:center;padding:40px;">
+<div style="font-size:40px;margin-bottom:16px;">🎛️</div>
+<div style="font-family:'DM Serif Display',Georgia,serif;font-size:24px;color:#D4943A;margin-bottom:8px;">SIMONOTO</div>
+<div style="color:#888899;font-size:12px;margin-bottom:24px;">Command Center — Private Access</div>
+<input id="auth-pw" type="password" placeholder="Enter password" style="width:240px;padding:10px 16px;border-radius:10px;border:1px solid #2a2a35;background:#13131a;color:#e8e8ef;font-size:14px;text-align:center;outline:none;" onkeydown="if(event.key==='Enter')checkAuth()">
+<br><button onclick="checkAuth()" style="margin-top:12px;padding:8px 32px;border-radius:10px;border:none;background:#D4943A;color:#000;font-weight:600;font-size:14px;cursor:pointer;">Enter</button>
+<div id="auth-err" style="color:#f87171;font-size:12px;margin-top:10px;display:none;">Incorrect password</div>
+</div>
+</div>
+<div class="app" id="app" style="display:none;"></div>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script>
+const AUTH_KEY='simonoto-cc-auth';
+const PW_HASH='49c23c06';
+function simpleHash(s){let h=0;for(let i=0;i<s.length;i++){h=((h<<5)-h)+s.charCodeAt(i);h|=0;}return Math.abs(h).toString(16).slice(0,12);}
+function checkAuth(){
+  const pw=document.getElementById('auth-pw').value;
+  if(simpleHash(pw)===PW_HASH){sessionStorage.setItem(AUTH_KEY,'1');showApp();}
+  else{document.getElementById('auth-err').style.display='block';}
+}
+function showApp(){document.getElementById('auth-gate').style.display='none';document.getElementById('app').style.display='flex';}
+if(sessionStorage.getItem(AUTH_KEY)==='1')showApp();
+</script>
+<script>
+/* ===== FIREBASE SETUP ===== */
+const firebaseConfig={
+  apiKey:"AIzaSyD66hIkYuZqPILjVruz0lnAqfrEK29PGog",
+  authDomain:"simonoto-828c0.firebaseapp.com",
+  databaseURL:"https://simonoto-828c0-default-rtdb.firebaseio.com",
+  projectId:"simonoto-828c0",
+  storageBucket:"simonoto-828c0.firebasestorage.app",
+  messagingSenderId:"578067799039",
+  appId:"1:578067799039:web:e43aede4916da472bd25ca"
+};
+const fbApp=firebase.initializeApp(firebaseConfig);
+firebase.auth().signInAnonymously().catch(e=>console.warn("Anon auth failed",e));
+const fbDb=firebase.database();
+const DB_ROOT="command-center";
+function dbRef(path){return fbDb.ref(DB_ROOT+"/"+path)}
+let skipSync=false;
+
+async function fbLoad(key,fallback){
+  try{
+    const snap=await dbRef(key).once("value");
+    const val=snap.val();
+    if(val!==null)return val;
+    // Migration: check old localStorage
+    const local=localStorage.getItem("simonoto-cc-v2");
+    if(local){
+      const parsed=JSON.parse(local);
+      if(parsed[key]!==undefined){await dbRef(key).set(parsed[key]);return parsed[key];}
+    }
+    return fallback;
+  }catch(e){
+    console.warn("Firebase read failed for "+key,e);
+    try{const r=localStorage.getItem("simonoto-cc-v2");if(r){const p=JSON.parse(r);if(p[key]!==undefined)return p[key];}return fallback;}catch(e2){return fallback;}
+  }
+}
+async function fbSave(key,val){
+  try{await dbRef(key).set(val);}catch(e){console.warn("Firebase write failed for "+key,e);}
+  // Always cache locally
+  try{const r=localStorage.getItem("simonoto-cc-v2");const d=r?JSON.parse(r):{};d[key]=val;localStorage.setItem("simonoto-cc-v2",JSON.stringify(d));}catch(e){}
+}
+function onDataChange(key,callback){
+  const ref=dbRef(key);
+  ref.on("value",snap=>{const val=snap.val();if(val!==null&&!skipSync){callback(val);}});
+  return()=>ref.off("value");
+}
+
+const STORAGE_KEY="simonoto-cc-v2";
+const DEFAULT_DATA={
+  projects:[
+    {id:"ch1",name:"Simonoto Ch.1",color:"#D4943A",status:"ready",priority:"high",
+      tracks:["BellDingThing","Tynomite!","SloppyDrippy","Sonar"],
+      tasks:[
+        {id:"t1",text:"Choose distributor & set up account",done:false,due:"2026-02-18"},
+        {id:"t2",text:"Finalize artwork for singles + album",done:false,due:"2026-02-25"},
+        {id:"t3",text:"Prep metadata (ISRC, credits, etc)",done:false,due:"2026-02-28"},
+        {id:"t4",text:"Upload to distributor (~3 wks before Mar release)",done:false,due:"2026-02-28"},
+        {id:"t5",text:"Set up Bandcamp pages for each single",done:false,due:"2026-03-01"},
+        {id:"t6",text:"Book/confirm April release show venue",done:false,due:"2026-02-21"},
+        {id:"t7",text:"Batch-produce social content for campaign",done:false,due:"2026-03-07"},
+        {id:"t8",text:"Start teasing on social media",done:false,due:"2026-03-10"},
+      ],
+      notes:"ALL 4 TRACKS DONE. Singles: Mar 5, 12, 19, 26 → Album: Apr 2 + Release Show",
+      releaseDate:"2026-04-02"},
+    {id:"ch2",name:"Simonoto Ch.2",color:"#5a9a7a",status:"in-progress",priority:"high",
+      tracks:["Freeze (Julian)","Lofi Crazy","White Lotus","Dreaming (needs mix)"],
+      tasks:[
+        {id:"t9",text:"Get Julian on the hook for Freeze",done:false,due:"2026-03-01"},
+        {id:"t10",text:"Fresh mix on Dreaming",done:false,due:"2026-03-15"},
+        {id:"t11",text:"Final master pass on all 4",done:false,due:"2026-04-15"},
+      ],
+      notes:"3/4 complete. Dreaming needs remix. Julian collab on Freeze.",releaseDate:"2026-05-01"},
+    {id:"ch3",name:"Simonoto Ch.3",color:"#CDB1CC",status:"in-progress",priority:"medium",
+      tracks:["DOPESAMPLE","Starline Jingle","Tupper & Reed Theme"],
+      tasks:[{id:"t12",text:"Flesh out Starline Jingle",done:false},{id:"t13",text:"Mix Tupper & Reed Theme",done:false}],
+      notes:"1 complete, 2 near-complete.",releaseDate:"2026-07-01"},
+    {id:"ch4",name:"Simonoto Ch.4",color:"#ED2024",status:"blocked",priority:"medium",
+      tracks:["What is life?","Ownway","SalsaChipps","Spooky Season"],
+      tasks:[{id:"t14",text:"Write lyrics for all tracks",done:false},{id:"t15",text:"Record vocals (need new mic)",done:false},{id:"t16",text:"Compose B section for Spooky Season",done:false}],
+      notes:"BLOCKED: All need vocals/lyrics. Waiting for new mic.",releaseDate:"2026-09-01"},
+    {id:"dm",name:"D.A.T.A.M.O.S.H",color:"#00ccff",status:"blocked",priority:"medium",
+      tracks:["White Masks","Trying to Forget","Lack of Ambition"],
+      tasks:[{id:"t17",text:"Coordinate w/ Victor Ko & Colin",done:false},{id:"t18",text:"Record vocals + mix/master all",done:false}],
+      notes:"Collab project. All need vocals + mix.",releaseDate:"2026-11-01"},
+    {id:"ch",name:"Celestial Hotties",color:"#ff66cc",status:"planning",priority:"low",
+      tracks:["Tynomite!","Nuthin' Betta' Than","Funkybrushin","Strange Brew","Dreaming","Meanmuggin","Sugar Coated","Swollen Eyeball"],
+      tasks:[{id:"t19",text:"Schedule band rehearsals",done:false},{id:"t20",text:"Record over summer",done:false}],
+      notes:"OK if 2027.",releaseDate:"2026-12-01"},
+    {id:"studioS",name:"Studio S Business",color:"#60a5fa",status:"in-progress",priority:"high",tracks:[],
+      tasks:[{id:"t21",text:"Finalize new pricing structure",done:false},{id:"t22",text:"Transition out of Inspire",done:false},{id:"t23",text:"Move SF students to Tuesday",done:false},{id:"t24",text:"Expand Professor of Funk",done:false},{id:"t25",text:"Complete Magilo (3 tracks)",done:false},{id:"t26",text:"Complete Bitchfit (6 tracks)",done:false}],
+      notes:"Transition teaching → production. Prof of Funk = $200/hr."},
+    {id:"social",name:"Social Media Growth",color:"#c084fc",status:"in-progress",priority:"high",tracks:[],
+      tasks:[{id:"t27",text:"Set up multi-platform posting",done:false},{id:"t28",text:"Mine YouTube streams for clips",done:false},{id:"t29",text:"Batch record weekly content",done:false}],
+      notes:"IG: 1,327 → 10K. TikTok: 83. 100+ hrs YouTube footage."},
+  ],
+  ideas:[
+    {id:"i1",text:"Livestream album recording session for content",cat:"content",star:true,date:"2026-02-11"},
+    {id:"i2",text:"Collab w/ local Oakland artists for cross-promo",cat:"marketing",star:false,date:"2026-02-11"},
+    {id:"i3",text:"Prof of Funk showcase: students perform YOUR songs",cat:"events",star:true,date:"2026-02-11"},
+    {id:"i4",text:"Deconstructed series — mute tracks one by one in video",cat:"content",star:true,date:"2026-02-11"},
+    {id:"i5",text:"Oakland sound map — each track connected to a location",cat:"creative",star:false,date:"2026-02-11"},
+  ],
+  schedule:{
+    recurring:[
+      {id:"r1",day:"Mon",time:"14:00",end:"15:00",label:"Commute to SF",color:"#888899"},
+      {id:"r2",day:"Mon",time:"15:00",end:"19:00",label:"Inspire Music",color:"#60a5fa"},
+      {id:"r3",day:"Mon",time:"19:15",end:"20:45",label:"Prof of Funk SF",color:"#D4943A"},
+      {id:"r4",day:"Tue",time:"15:00",end:"19:00",label:"Inspire Music",color:"#60a5fa"},
+      {id:"r5",day:"Wed",time:"15:00",end:"19:00",label:"Private Students",color:"#4ade80"},
+      {id:"r6",day:"Sat",time:"10:00",end:"11:30",label:"CJC Youth Funk",color:"#5a9a7a"},
+      {id:"r7",day:"Sun",time:"12:00",end:"13:30",label:"Prof of Funk #1",color:"#D4943A"},
+      {id:"r8",day:"Sun",time:"14:00",end:"16:30",label:"Prof of Funk #2",color:"#D4943A"},
+    ],
+    blocks:[
+      {id:"b1",day:"Mon",time:"09:00",end:"12:00",label:"Practice",color:"#7A4A28"},
+      {id:"b2",day:"Tue",time:"09:00",end:"13:00",label:"Studio S",color:"#D4943A"},
+      {id:"b3",day:"Wed",time:"09:00",end:"13:00",label:"Studio S",color:"#D4943A"},
+      {id:"b4",day:"Thu",time:"09:00",end:"18:00",label:"PRODUCTION DAY",color:"#f87171"},
+      {id:"b5",day:"Fri",time:"09:00",end:"13:00",label:"Content Day",color:"#c084fc"},
+      {id:"b6",day:"Fri",time:"14:00",end:"17:00",label:"Practice",color:"#7A4A28"},
+      {id:"b7",day:"Sat",time:"13:00",end:"17:00",label:"Studio S / Projects",color:"#D4943A"},
+    ]
+  },
+  messages:[],tab:0
+};
+
+let data=null;
+function loadData(){try{const s=localStorage.getItem(STORAGE_KEY);data=s?JSON.parse(s):JSON.parse(JSON.stringify(DEFAULT_DATA));}catch(e){data=JSON.parse(JSON.stringify(DEFAULT_DATA));}}
+function saveData(){
+  // Save to localStorage immediately
+  try{localStorage.setItem(STORAGE_KEY,JSON.stringify(data));}catch(e){}
+  // Save each slice to Firebase
+  if(!skipSync){
+    fbSave("projects",data.projects);
+    fbSave("ideas",data.ideas);
+    fbSave("schedule",data.schedule);
+    fbSave("messages",data.messages);
+  }
+}
+function setTab(t){data.tab=t;try{localStorage.setItem(STORAGE_KEY,JSON.stringify(data));}catch(e){}render();}
+
+let _id=Date.now();
+function uid(){return(++_id).toString(36)+Math.random().toString(36).slice(2,6);}
+function fmtDate(d){if(!d)return"";return new Date(d+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric"});}
+function isToday(d){return new Date().toDateString()===d.toDateString();}
+function daysUntil(d){return Math.max(0,Math.ceil((new Date(d)-new Date())/86400000));}
+function getWeekDates(){const now=new Date(),day=now.getDay(),start=new Date(now);start.setDate(now.getDate()-day);return Array.from({length:7},(_,i)=>{const d=new Date(start);d.setDate(start.getDate()+i);return d;});}
+
+const DAYS=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const CATS=["general","content","marketing","events","music","business","creative","tech"];
+const STATUSES={ready:"Ready","in-progress":"In Prog",blocked:"Blocked",planning:"Planning",released:"Released"};
+const STATUS_CLASS={ready:"badge-ready","in-progress":"badge-progress",blocked:"badge-blocked",planning:"badge-planning",released:"badge-ready"};
+
+function h(tag,attrs,...children){
+  const el=document.createElement(tag);
+  if(attrs)Object.entries(attrs).forEach(([k,v])=>{
+    if(k==="style"&&typeof v==="object")Object.assign(el.style,v);
+    else if(k.startsWith("on"))el.addEventListener(k.slice(2).toLowerCase(),v);
+    else if(k==="class"||k==="className")el.className=v;
+    else if(k==="html")el.innerHTML=v;
+    else el.setAttribute(k,v);
+  });
+  children.flat(9).forEach(c=>{if(c==null||c===false)return;el.appendChild(typeof c==="string"?document.createTextNode(c):c);});
+  return el;
+}
+
+function renderDashboard(){
+  const projects=data.projects,ideas=data.ideas||[];
+  const allTasks=projects.flatMap(p=>(p.tasks||[]).map(t=>({...t,proj:p.name,color:p.color})));
+  const done=allTasks.filter(t=>t.done).length,total=allTasks.length;
+  const pct=total?Math.round(done/total*100):0;
+  const upcoming=allTasks.filter(t=>!t.done&&t.due).sort((a,b)=>new Date(a.due)-new Date(b.due)).slice(0,5);
+  const now=new Date(),hour=now.getHours();
+  const greeting=hour<12?"Good morning":hour<17?"Good afternoon":"Good evening";
+
+  return h("div",{class:"pad"},
+    h("div",{style:{marginBottom:"20px"}},
+      h("h1",{style:{fontFamily:"'DM Serif Display',Georgia,serif",fontSize:"22px",fontWeight:"700",margin:"0"}},greeting+", Kaze"),
+      h("p",{style:{color:"var(--muted)",fontSize:"12px",margin:"2px 0 0"}},now.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric",year:"numeric"}))
+    ),
+    h("div",{class:"capture"},
+      h("span",{},"💡"),
+      h("input",{id:"quick-idea",placeholder:"Quick idea capture... (Enter to save)",onKeydown:e=>{
+        if(e.key==="Enter"&&e.target.value.trim()){data.ideas.push({id:uid(),text:e.target.value.trim(),cat:"general",star:false,date:new Date().toISOString().slice(0,10)});saveData();render();}
+      }})
+    ),
+    h("div",{class:"stats"},
+      h("div",{class:"stat"},h("div",{class:"stat-label"},"Progress"),h("div",{class:"stat-value"},pct+"%"),h("div",{class:"stat-sub"},done+"/"+total+" tasks")),
+      h("div",{class:"stat"},h("div",{class:"stat-label"},"Active"),h("div",{class:"stat-value"},""+projects.filter(p=>p.status!=="planning"&&p.status!=="released").length)),
+      h("div",{class:"stat"},h("div",{class:"stat-label"},"Ideas"),h("div",{class:"stat-value"},""+ideas.length)),
+      h("div",{class:"stat"},h("div",{class:"stat-label"},"Next Release"),h("div",{class:"stat-value"},daysUntil("2026-03-05")+"d"),h("div",{class:"stat-sub"},"Ch.1 Single #1"))
+    ),
+    h("div",{class:"card"},
+      h("div",{style:{fontWeight:"600",fontSize:"13px",marginBottom:"10px"}},"📅 Release Timeline (Otis Method)"),
+      h("div",{class:"timeline-bar"},
+        ...[{l:"Mar 5",s:"BellDing",c:"#D4943A",ht:30},{l:"Mar 12",s:"Tynomite!",c:"#D4943A",ht:35},
+         {l:"Mar 19",s:"Sloppy",c:"#D4943A",ht:40},{l:"Mar 26",s:"Sonar",c:"#D4943A",ht:45},
+         {l:"Apr 2",s:"ALBUM",c:"#D4943A",ht:60},{l:"Apr+",s:"Ch.2",c:"#5a9a7a",ht:30},
+         {l:"May",s:"Ch.2 LP",c:"#5a9a7a",ht:35},{l:"Jul",s:"Ch.3",c:"#CDB1CC",ht:25},
+         {l:"Sep",s:"Ch.4",c:"#ED2024",ht:25},{l:"Nov",s:"D.M.",c:"#00ccff",ht:25}
+        ].map(item=>h("div",{class:"tl-item"},
+          h("div",{class:"tl-bar",style:{height:item.ht+"px",background:item.c,opacity:"0.8"}}),
+          h("div",{class:"tl-label"},item.l),
+          h("div",{class:"tl-sub",style:{color:item.c}},item.s)
+        ))
+      )
+    ),
+    h("div",{class:"two-col"},
+      h("div",{class:"card"},
+        h("div",{style:{fontWeight:"600",fontSize:"13px",marginBottom:"10px"}},"⏳ Upcoming Deadlines"),
+        ...upcoming.map(t=>h("div",{style:{display:"flex",alignItems:"center",gap:"8px",padding:"6px 0",borderBottom:"1px solid var(--border)"}},
+          h("span",{style:{width:"3px",height:"24px",borderRadius:"2px",background:t.color,flexShrink:"0"}}),
+          h("div",{style:{flex:"1",minWidth:"0"}},
+            h("div",{style:{fontSize:"12px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}},t.text),
+            h("div",{style:{fontSize:"10px",color:"var(--muted)"}},t.proj)
+          ),
+          h("span",{style:{color:"var(--accent)",fontSize:"11px",fontWeight:"600",flexShrink:"0"}},fmtDate(t.due))
+        )),
+        upcoming.length===0?h("p",{style:{color:"var(--muted)",fontSize:"12px"}},"No deadlines!"):""
+      ),
+      h("div",{class:"card"},
+        h("div",{style:{fontWeight:"600",fontSize:"13px",marginBottom:"10px"}},"🔥 High Priority"),
+        ...projects.filter(p=>p.priority==="high").map(p=>{
+          const d=(p.tasks||[]).filter(t=>t.done).length,tot=(p.tasks||[]).length,pc=tot?Math.round(d/tot*100):0;
+          return h("div",{style:{marginBottom:"12px"}},
+            h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"4px"}},
+              h("span",{style:{fontSize:"13px",fontWeight:"600"}},p.name),
+              h("span",{class:"badge "+STATUS_CLASS[p.status]},STATUSES[p.status])
+            ),
+            h("div",{class:"progress"},h("div",{class:"progress-fill",style:{width:pc+"%",background:p.color}})),
+            h("div",{style:{color:"var(--muted)",fontSize:"10px",marginTop:"3px"}},d+"/"+tot+" tasks"+(p.releaseDate?" · "+fmtDate(p.releaseDate):""))
+          );
+        })
+      )
+    ),
+    h("div",{style:{textAlign:"center",margin:"16px 0",padding:"14px",background:"var(--accent-glow)",borderRadius:"12px"}},
+      h("p",{style:{fontFamily:"'DM Serif Display',Georgia,serif",color:"var(--accent)",fontSize:"14px",fontWeight:"600",margin:"0"}},'"6 months of weekly releases from what you already have."'),
+      h("p",{style:{color:"var(--muted)",fontSize:"11px",margin:"3px 0 0"}},"You're not making new music. You're releasing strategically.")
+    )
+  );
+}
+
+let selectedProject=null;
+function renderProjects(){
+  if(selectedProject){
+    const p=data.projects.find(pr=>pr.id===selectedProject);
+    if(!p){selectedProject=null;return renderProjects();}
+    const d=(p.tasks||[]).filter(t=>t.done).length,tot=(p.tasks||[]).length,pc=tot?Math.round(d/tot*100):0;
+    return h("div",{class:"pad"},
+      h("button",{class:"btn-outline",style:{marginBottom:"12px"},onClick:()=>{selectedProject=null;render();}},"← Back"),
+      h("div",{style:{display:"flex",alignItems:"center",gap:"10px",marginBottom:"6px"}},
+        h("span",{style:{width:"5px",height:"28px",borderRadius:"3px",background:p.color}}),
+        h("h2",{style:{fontFamily:"'DM Serif Display',Georgia,serif",fontSize:"20px",margin:"0"}},p.name),
+        h("span",{class:"badge "+STATUS_CLASS[p.status]},STATUSES[p.status])
+      ),
+      h("div",{class:"progress",style:{marginBottom:"4px"}},h("div",{class:"progress-fill",style:{width:pc+"%",background:p.color,height:"8px"}})),
+      h("div",{style:{color:"var(--muted)",fontSize:"11px",marginBottom:"16px"}},pc+"% · "+d+"/"+tot+" tasks"),
+      h("div",{style:{display:"flex",gap:"6px",flexWrap:"wrap",marginBottom:"16px"}},
+        ...["planning","in-progress","blocked","ready","released"].map(s=>
+          h("button",{class:"chip"+(p.status===s?" active":""),onClick:()=>{p.status=s;saveData();render();}},s.replace("-"," "))
+        )
+      ),
+      p.tracks&&p.tracks.length?h("div",{style:{marginBottom:"16px"}},
+        h("div",{style:{color:"var(--muted)",fontSize:"10px",textTransform:"uppercase",letterSpacing:"0.5px",marginBottom:"6px"}},"Tracks"),
+        h("div",{class:"proj-tracks"},...p.tracks.map(t=>h("span",{class:"proj-track"},"🎵 "+t)))
+      ):"",
+      h("div",{style:{marginBottom:"16px"}},
+        h("div",{style:{color:"var(--muted)",fontSize:"10px",textTransform:"uppercase",letterSpacing:"0.5px",marginBottom:"6px"}},"Tasks"),
+        ...(p.tasks||[]).map(t=>h("div",{class:"task"+(t.done?" task-done":"")},
+          h("input",{type:"checkbox",...(t.done?{checked:"checked"}:{}),onChange:()=>{t.done=!t.done;saveData();render();}}),
+          h("span",{class:"task-text"},t.text),
+          t.due?h("span",{class:"task-due"},fmtDate(t.due)):"",
+          h("button",{class:"task-del",onClick:()=>{p.tasks=p.tasks.filter(x=>x.id!==t.id);saveData();render();}},"×")
+        )),
+        h("div",{style:{display:"flex",gap:"6px",marginTop:"8px"}},
+          h("input",{class:"input",id:"new-task",placeholder:"Add a task...",style:{flex:"1"},onKeydown:e=>{
+            if(e.key==="Enter"&&e.target.value.trim()){p.tasks.push({id:uid(),text:e.target.value.trim(),done:false});saveData();render();}
+          }}),
+          h("button",{class:"btn btn-sm",onClick:()=>{const inp=document.getElementById("new-task");if(inp&&inp.value.trim()){p.tasks.push({id:uid(),text:inp.value.trim(),done:false});saveData();render();}}},"Add")
+        )
+      ),
+      h("div",{},
+        h("div",{style:{color:"var(--muted)",fontSize:"10px",textTransform:"uppercase",letterSpacing:"0.5px",marginBottom:"6px"}},"Notes"),
+        h("textarea",{class:"input",rows:"4",style:{resize:"vertical"},onInput:e=>{p.notes=e.target.value;saveData();}},p.notes||"")
+      )
+    );
+  }
+  return h("div",{class:"pad"},
+    h("h2",{style:{fontFamily:"'DM Serif Display',Georgia,serif",fontSize:"20px",margin:"0 0 14px"}},"All Projects"),
+    h("div",{class:"two-col"},
+      ...data.projects.map(p=>{
+        const d=(p.tasks||[]).filter(t=>t.done).length,tot=(p.tasks||[]).length,pc=tot?Math.round(d/tot*100):0;
+        return h("div",{class:"card card-top",style:{borderTopColor:p.color,cursor:"pointer"},onClick:()=>{selectedProject=p.id;render();}},
+          h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"6px"}},
+            h("div",{},
+              h("div",{style:{fontWeight:"600",fontSize:"14px"}},p.name),
+              h("div",{style:{color:"var(--muted)",fontSize:"11px"}},(p.tracks&&p.tracks.length?p.tracks.length+" tracks":"")+(p.releaseDate?" · "+fmtDate(p.releaseDate):""))
+            ),
+            h("span",{class:"badge "+STATUS_CLASS[p.status]},STATUSES[p.status])
+          ),
+          h("div",{class:"progress"},h("div",{class:"progress-fill",style:{width:pc+"%",background:p.color}})),
+          h("div",{style:{color:"var(--muted)",fontSize:"10px",marginTop:"3px"}},d+"/"+tot+" complete")
+        );
+      })
+    )
+  );
+}
+
+let ideaFilter="all";
+function renderIdeaCard(idea,cc){
+  return h("div",{class:"idea-card"},
+    h("button",{class:"idea-star",style:{color:idea.star?"var(--accent)":"var(--muted)"},onClick:()=>{idea.star=!idea.star;saveData();render();}},idea.star?"⭐":"☆"),
+    h("div",{class:"idea-body"},
+      h("div",{class:"idea-text"},idea.text),
+      h("div",{class:"idea-meta"},
+        h("span",{class:"idea-cat",style:{color:cc[idea.cat]||"var(--muted)"}},idea.cat),
+        h("span",{style:{fontSize:"9px",color:"var(--muted)"}},idea.date)
+      )
+    ),
+    h("button",{class:"task-del",onClick:()=>{data.ideas=data.ideas.filter(i=>i.id!==idea.id);saveData();render();}},"×")
+  );
+}
+function renderIdeas(){
+  const ideas=data.ideas||[];
+  const filtered=ideaFilter==="all"?ideas:ideas.filter(i=>i.cat===ideaFilter);
+  const starred=filtered.filter(i=>i.star),rest=filtered.filter(i=>!i.star);
+  const cc={general:"var(--muted)",content:"var(--purple)",marketing:"var(--green)",events:"var(--accent)",music:"#D4943A",business:"var(--blue)",creative:"#ff66cc",tech:"#00ccff"};
+  return h("div",{class:"pad"},
+    h("h2",{style:{fontFamily:"'DM Serif Display',Georgia,serif",fontSize:"20px",margin:"0 0 2px"}},"Idea Pool"),
+    h("p",{style:{color:"var(--muted)",fontSize:"12px",margin:"0 0 14px"}},"Capture everything. Star the best."),
+    h("div",{class:"card",style:{marginBottom:"14px"}},
+      h("textarea",{class:"input",id:"new-idea",rows:"2",placeholder:"What's the idea? (Enter to save)",style:{marginBottom:"8px",resize:"none"},
+        onKeydown:e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();const sel=document.getElementById("idea-cat");if(e.target.value.trim()){data.ideas.push({id:uid(),text:e.target.value.trim(),cat:sel?sel.value:"general",star:false,date:new Date().toISOString().slice(0,10)});saveData();render();}}}
+      }),
+      h("div",{style:{display:"flex",gap:"6px",alignItems:"center"}},
+        h("select",{class:"input",id:"idea-cat",style:{width:"auto",fontSize:"11px",padding:"4px 8px"}},...CATS.map(c=>h("option",{value:c},c))),
+        h("div",{style:{flex:"1"}}),
+        h("button",{class:"btn btn-sm",onClick:()=>{const inp=document.getElementById("new-idea"),sel=document.getElementById("idea-cat");if(inp&&inp.value.trim()){data.ideas.push({id:uid(),text:inp.value.trim(),cat:sel?sel.value:"general",star:false,date:new Date().toISOString().slice(0,10)});saveData();render();}}},"Add")
+      )
+    ),
+    h("div",{class:"chips"},...["all",...CATS].map(c=>h("button",{class:"chip"+(ideaFilter===c?" active":""),onClick:()=>{ideaFilter=c;render();}},c))),
+    starred.length?h("div",{style:{marginBottom:"12px"}},
+      h("div",{style:{color:"var(--accent)",fontSize:"10px",textTransform:"uppercase",letterSpacing:"0.5px",fontWeight:"600",marginBottom:"6px"}},"⭐ Starred"),
+      ...starred.map(i=>renderIdeaCard(i,cc))
+    ):"",
+    ...rest.map(i=>renderIdeaCard(i,cc)),
+    filtered.length===0?h("p",{style:{color:"var(--muted)",textAlign:"center",padding:"30px",fontSize:"13px"}},"No ideas yet."):""
+  );
+}
+
+function renderSchedule(){
+  const sched=data.schedule||DEFAULT_DATA.schedule;
+  const weekDates=getWeekDates();
+  function eventsForDay(dn){return[...(sched.blocks||[]).filter(e=>e.day===dn),...(sched.recurring||[]).filter(e=>e.day===dn)].sort((a,b)=>a.time.localeCompare(b.time));}
+  return h("div",{class:"pad"},
+    h("h2",{style:{fontFamily:"'DM Serif Display',Georgia,serif",fontSize:"20px",margin:"0 0 2px"}},"Your Week"),
+    h("p",{style:{color:"var(--muted)",fontSize:"12px",margin:"0 0 14px"}},"Protect Thursday. Practice 2hrs/day."),
+    h("div",{class:"sched-grid"},
+      ...weekDates.map(date=>{
+        const dn=DAYS[date.getDay()],events=eventsForDay(dn),today=isToday(date);
+        return h("div",{class:"sched-day"+(today?" today":"")},
+          h("div",{class:"sched-header"},h("div",{class:"sched-dayname"},dn),h("div",{class:"sched-date"},""+date.getDate())),
+          ...events.map(ev=>h("div",{class:"sched-event",style:{borderLeftColor:ev.color,background:ev.color+"15"}},
+            h("div",{class:"sched-event-time",style:{color:ev.color}},ev.time.replace(/:00$/,"")+"–"+ev.end.replace(/:00$/,"")),
+            h("div",{style:{fontSize:"9px",lineHeight:"1.2"}},ev.label)
+          ))
+        );
+      })
+    ),
+    h("div",{class:"card",style:{marginTop:"14px"}},
+      h("div",{style:{fontWeight:"600",fontSize:"13px",marginBottom:"8px"}},"🎯 Principles"),
+      ...["🔴 Thursday = SACRED production day","🎸 2hrs practice daily — mornings first","📱 Friday = content creation day","💰 Prof of Funk > Inspire — transition ASAP","🎵 Singles March → Album April"].map(t=>h("p",{style:{fontSize:"12px",margin:"4px 0"}},t))
+    )
+  );
+}
+
+let chatMode="general";
+function renderBridge(){
+  const modes={general:"General",brainstorm:"Brainstorm",strategy:"Strategy",copy:"Copy"};
+  const systems={
+    general:"You are Claude, helping Simonoto (Kaze) with his music career. Oakland multi-instrumentalist/producer/educator. Be concise.",
+    brainstorm:"You are a creative brainstorming partner for Simonoto. Wild ideas. Think outside the box.",
+    strategy:"You are a music business strategist. Simonoto uses the Otis method. Singles March, album April. Be analytical.",
+    copy:"You are a social media copywriter for Simonoto, Oakland funk/jazz/soul artist. Engaging, authentic, groovy."
+  };
+  const messages=data.messages||[];
+  return h("div",{style:{display:"flex",flexDirection:"column",height:"100%"}},
+    h("div",{style:{display:"flex",gap:"6px",padding:"12px 16px",flexWrap:"wrap"}},
+      ...Object.entries(modes).map(([k,v])=>h("button",{class:"chip"+(chatMode===k?" active":""),onClick:()=>{chatMode=k;render();}},v))
+    ),
+    h("button",{class:"btn-outline",style:{margin:"0 16px 8px",alignSelf:"flex-end",fontSize:"10px",padding:"3px 8px"},onClick:()=>{data.messages=[];saveData();render();}},"Clear"),
+    h("div",{class:"chat-messages",id:"chat-msgs"},
+      messages.length===0?h("div",{style:{textAlign:"center",padding:"40px 20px"}},h("p",{style:{fontSize:"28px"}},"📝"),h("p",{style:{color:"var(--muted)",fontSize:"13px"}},"Quick notes, ideas, reminders...")):"",
+      ...messages.map(m=>h("div",{class:"chat-msg "+(m.role==="user"?"chat-user":"chat-ai")},m.content))
+    ),
+    h("div",{class:"chat-input"},
+      h("textarea",{id:"chat-in",rows:"2",placeholder:"Jot a note... (Enter to save)",
+        onKeydown:e=>{
+          if(e.key==="Enter"&&!e.shiftKey){
+            e.preventDefault();const val=e.target.value.trim();if(!val)return;
+            data.messages.push({role:"user",content:val});e.target.value="";saveData();render();
+            setTimeout(()=>{const el=document.getElementById("chat-msgs");if(el)el.scrollTop=el.scrollHeight;},50);
+          }
+        }
+      }),
+      h("button",{class:"btn",style:{alignSelf:"flex-end"},onClick:()=>{const inp=document.getElementById("chat-in");if(inp&&inp.value.trim()){data.messages.push({role:"user",content:inp.value.trim()});inp.value="";saveData();render();setTimeout(()=>{const el=document.getElementById("chat-msgs");if(el)el.scrollTop=el.scrollHeight;},50);}}},"Save")
+    )
+  );
+}
+
+/* ===== OPS TAB — Team Simonoto Orchestrator ===== */
+const OPS_URL="https://bones.professoroffunk.com";
+let opsCache={brief:null,status:null,proposals:null,dossier:null,progress:null,lastFetch:0};
+
+async function opsApi(path,opts={}){
+  const url=OPS_URL+path;
+  const fetchOpts={headers:{"Content-Type":"application/json"},...opts};
+  if(opts.body)fetchOpts.body=JSON.stringify(opts.body);
+  try{
+    const res=await fetch(url,fetchOpts);
+    return{ok:res.ok,data:await res.json().catch(()=>null)};
+  }catch(e){return{ok:false,data:{error:e.message}};}
+}
+
+async function loadOpsData(force){
+  const now=Date.now();
+  if(!force&&opsCache.lastFetch&&now-opsCache.lastFetch<30000)return opsCache;
+  try{
+    const[status,proposals,dossier,brief,progress,revenue,opportunities,deadlines,gigs]=await Promise.all([
+      opsApi("/status"),
+      opsApi("/proposals?status=pending&limit=20"),
+      opsApi("/dossier/recent?limit=10"),
+      opsApi("/brief"),
+      opsApi("/progress"),
+      opsApi("/revenue").catch(()=>({data:null})),
+      opsApi("/opportunities?status=new&limit=10").catch(()=>({data:[]})),
+      opsApi("/deadlines?days=14").catch(()=>({data:[]})),
+      opsApi("/gigs?status=upcoming&limit=5").catch(()=>({data:[]})),
+    ]);
+    opsCache={status:status.data,proposals:proposals.data,dossier:dossier.data,brief:brief.data,progress:progress.data,revenue:revenue.data,opportunities:opportunities.data,deadlines:deadlines.data,gigs:gigs.data,lastFetch:now,error:null};
+  }catch(e){opsCache.error=e.message;}
+  return opsCache;
+}
+
+async function resolveOpsProposal(id,status,note){
+  const res=await opsApi(`/proposals/${id}/resolve`,{method:"POST",body:{status,note}});
+  if(res.ok){await loadOpsData(true);render();}
+  return res;
+}
+
+function renderOps(){
+  const wrap=h("div",{class:"pad"});
+  const cache=opsCache;
+
+  // Header
+  wrap.appendChild(h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px"}},
+    h("h2",{style:{fontFamily:"'DM Serif Display',Georgia,serif",fontSize:"20px",margin:"0"}},"Daily Cockpit"),
+    h("button",{class:"btn-outline",style:{fontSize:"10px"},onClick:async()=>{wrap.innerHTML='<div class="ops-loading">Refreshing...</div>';await loadOpsData(true);render();}},"↻ Refresh")
+  ));
+
+  // Loading state
+  if(!cache.lastFetch){
+    wrap.appendChild(h("div",{class:"ops-loading"},"Connecting to orchestrator..."));
+    loadOpsData().then(()=>render());
+    return wrap;
+  }
+
+  if(cache.error){
+    wrap.appendChild(h("div",{class:"ops-error"},"⚠ "+cache.error+" — Is the Pi online?"));
+  }
+
+  // System status pills
+  const st=cache.status||{};
+  const paceClass=st.pace==="full"?"ops-pill-ok":st.pace==="stop"?"ops-pill-off":st.pace==="pause"?"ops-pill-warn":"ops-pill-muted";
+  const modeClass=st.mode==="awake"?"ops-pill-ok":"ops-pill-muted";
+  const budget=st.budget||{};
+  const budgetPct=budget.ceiling?Math.round((budget.spent||0)/budget.ceiling*100):0;
+  const budgetClass=budgetPct>80?"ops-pill-warn":budgetPct>95?"ops-pill-off":"ops-pill-ok";
+
+  wrap.appendChild(h("div",{class:"ops-status"},
+    h("span",{class:"ops-pill "+paceClass},"⚡ "+(st.pace||"?")),
+    h("span",{class:"ops-pill "+modeClass},(st.mode==="sleep"?"🌙":"☀️")+" "+(st.mode||"?")),
+    h("span",{class:"ops-pill "+budgetClass},"💰 $"+(budget.spent||0).toFixed(2)+"/$"+(budget.ceiling||"?"))
+  ));
+
+  const brief=cache.brief||{};
+
+  // ═══ TL;DR — scan in 10 seconds ═══
+  const tldr=brief.tldr||[];
+  if(tldr.length>0){
+    wrap.appendChild(h("div",{class:"card card-top",style:{marginBottom:"12px"}},
+      h("div",{style:{fontWeight:"700",fontSize:"14px",marginBottom:"8px"}},"TL;DR"),
+      h("ul",{class:"tldr-list"},
+        ...tldr.map(item=>h("li",{class:"tldr-item"},"→ "+item))
+      )
+    ));
+  }
+
+  // ═══ RANKED ACTIONS — do these in order ═══
+  const actions=brief.actions||[];
+  if(actions.length>0){
+    wrap.appendChild(h("div",{class:"ops-section"},
+      h("div",{class:"ops-section-title"},"🎯 Today's Actions"),
+      ...actions.map(a=>{
+        const badgeClass=a.priority==="urgent"?"action-badge-urgent":a.priority==="soon"?"action-badge-soon":a.priority==="quick-win"?"action-badge-quick":"action-badge-content";
+        const card=h("div",{class:"action-card"},
+          h("div",{class:"action-rank"},""+a.rank),
+          h("div",{class:"action-body"},
+            h("div",{class:"action-text"},a.action),
+            h("div",{class:"action-meta"},
+              a.date?"Due: "+a.date:"",
+              a.domain?" · "+a.domain:"",
+              a.effort?" · "+a.effort:""
+            )
+          ),
+          h("span",{class:"action-badge "+badgeClass},a.priority)
+        );
+        // If it's a proposal, add quick approve button
+        if(a.proposal_id){
+          card.appendChild(h("button",{class:"btn-approve",style:{flexShrink:"0"},onClick:()=>resolveOpsProposal(a.proposal_id,"greenlit","Quick-approved from cockpit")},"✓"));
+        }
+        return card;
+      })
+    ));
+  }
+
+  // ═══ REVENUE SNAPSHOT ═══
+  const rev=cache.revenue;
+  if(rev&&(rev.total>0||rev.entries?.length>0)){
+    const types=rev.byType||{};
+    wrap.appendChild(h("div",{class:"revenue-card"},
+      h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"8px"}},
+        h("div",{style:{fontWeight:"700",fontSize:"14px"}},"Revenue"),
+        h("div",{style:{fontFamily:"'DM Serif Display',Georgia,serif",fontSize:"24px",fontWeight:"700",color:"var(--green)"}},"$"+rev.total.toFixed(0))
+      ),
+      h("div",{style:{fontSize:"10px",color:"var(--muted)",marginBottom:"8px"}},"Month to date"),
+      Object.keys(types).length>0?h("div",{style:{display:"flex",gap:"12px",flexWrap:"wrap"}},
+        ...Object.entries(types).map(([t,amt])=>h("div",{style:{fontSize:"12px"}},
+          h("span",{style:{color:"var(--muted)"}},t+": "),
+          h("span",{style:{fontWeight:"600"}},"$"+amt.toFixed(0))
+        ))
+      ):""
+    ));
+  }
+
+  // ═══ UPCOMING GIGS ═══
+  const gigs=Array.isArray(cache.gigs)?cache.gigs:[];
+  if(gigs.length>0){
+    wrap.appendChild(h("div",{class:"ops-section"},
+      h("div",{class:"ops-section-title"},"🎸 Upcoming Gigs"),
+      ...gigs.map(g=>h("div",{class:"deadline-row"},
+        h("div",{},h("span",{style:{fontWeight:"600"}},g.title),g.venue?h("span",{style:{color:"var(--muted)",fontSize:"11px"}}," @ "+g.venue):""),
+        h("div",{style:{display:"flex",gap:"8px",alignItems:"center"}},
+          g.pay?h("span",{style:{color:"var(--green)",fontWeight:"600",fontSize:"12px"}},"$"+g.pay):"",
+          h("span",{style:{color:"var(--accent)",fontSize:"11px",fontWeight:"600"}},g.date)
+        )
+      ))
+    ));
+  }
+
+  // ═══ OPPORTUNITIES ═══
+  const opps=Array.isArray(cache.opportunities)?cache.opportunities:[];
+  if(opps.length>0){
+    wrap.appendChild(h("div",{class:"ops-section"},
+      h("div",{class:"ops-section-title"},"💎 Opportunities ("+opps.length+")"),
+      ...opps.slice(0,5).map(o=>h("div",{class:"opp-card"},
+        h("div",{class:"opp-title"},o.title),
+        h("div",{class:"opp-meta"},
+          o.platform?h("span",{},o.platform):"",
+          o.type?h("span",{class:"badge badge-progress"},o.type):"",
+          o.deadline?h("span",{style:{color:"var(--accent)"}},"Due: "+o.deadline):""
+        )
+      ))
+    ));
+  }
+
+  // ═══ DEADLINES ═══
+  const deadlines=Array.isArray(cache.deadlines)?cache.deadlines:[];
+  if(deadlines.length>0){
+    wrap.appendChild(h("div",{class:"ops-section"},
+      h("div",{class:"ops-section-title"},"📅 Upcoming Deadlines"),
+      ...deadlines.slice(0,8).map(d=>{
+        const days=Math.ceil((new Date(d.date)-new Date())/86400000);
+        const urgency=days<=3?"var(--red)":days<=7?"var(--accent)":"var(--muted)";
+        return h("div",{class:"deadline-row"},
+          h("div",{},
+            h("span",{style:{fontSize:"12px",fontWeight:"500"}},d.title),
+            d.detail?h("span",{style:{color:"var(--muted)",fontSize:"10px"}}," · "+d.detail):""
+          ),
+          h("span",{style:{color:urgency,fontSize:"11px",fontWeight:"600"}},days<=0?"Today":days===1?"Tomorrow":days+"d")
+        );
+      })
+    ));
+  }
+
+  // ═══ PROPOSALS ═══
+  const proposals=Array.isArray(cache.proposals)?cache.proposals:[];
+  if(proposals.length>0){
+    wrap.appendChild(h("div",{class:"ops-section"},
+      h("div",{class:"ops-section-title"},"📨 Proposals ("+proposals.length+")"),
+      ...proposals.map(p=>h("div",{class:"proposal"},
+        h("div",{class:"proposal-title"},p.title),
+        h("div",{class:"proposal-body"},p.body.length>200?p.body.slice(0,200)+"...":p.body),
+        h("div",{class:"proposal-meta"},
+          h("span",{class:"badge badge-progress"},p.domain),
+          h("span",{style:{fontSize:"10px",color:"var(--muted)"}},p.effort),
+          p.recommendation==="greenlight"?h("span",{style:{fontSize:"10px",color:"var(--green)",fontWeight:"600"}},"✓ Recommended"):""
+        ),
+        h("div",{class:"proposal-actions"},
+          h("button",{class:"btn-approve",onClick:()=>resolveOpsProposal(p.id,"greenlit","Approved from Command Center")},"✓ Greenlight"),
+          h("button",{class:"btn-shelve",onClick:()=>resolveOpsProposal(p.id,"shelved","Shelved from Command Center")},"Shelve"),
+          h("button",{class:"btn-reject",onClick:()=>resolveOpsProposal(p.id,"rejected","Rejected from Command Center")},"✗ Reject")
+        )
+      ))
+    ));
+  }else{
+    wrap.appendChild(h("div",{class:"ops-section"},
+      h("div",{class:"ops-section-title"},"📨 Proposals"),
+      h("div",{style:{color:"var(--muted)",fontSize:"12px",padding:"12px 0"}},"No pending proposals.")
+    ));
+  }
+
+  // ═══ BUSINESS PROGRESS (collapsed by default) ═══
+  const prog=cache.progress||{};
+  const pProp=prog.proposals||{};
+  const funnel=pProp.funnel||{};
+
+  if(funnel.total>0){
+    const progressSection=h("div",{class:"ops-section"});
+    const toggleBtn=h("div",{class:"ops-section-title",style:{cursor:"pointer"},onClick:()=>{
+      const detail=progressSection.querySelector(".progress-detail");
+      if(detail)detail.style.display=detail.style.display==="none"?"block":"none";
+    }},"📊 Progress Report ▸");
+    progressSection.appendChild(toggleBtn);
+
+    // Compact funnel bar always visible
+    progressSection.appendChild(h("div",{style:{marginBottom:"8px"}},
+      funnel.total>0?h("div",{},
+        h("div",{style:{display:"flex",height:"8px",borderRadius:"4px",overflow:"hidden",background:"var(--border)"}},
+          funnel.shipped?h("div",{style:{width:(funnel.shipped/funnel.total*100)+"%",background:"var(--green)"}}):"",
+          funnel.greenlit?h("div",{style:{width:(funnel.greenlit/funnel.total*100)+"%",background:"var(--blue)"}}):"",
+          funnel.pending?h("div",{style:{width:(funnel.pending/funnel.total*100)+"%",background:"var(--accent)"}}):"",
+        ),
+        h("div",{style:{display:"flex",justifyContent:"space-between",fontSize:"9px",color:"var(--muted)",marginTop:"3px"}},
+          h("span",{style:{color:"var(--green)"}},(funnel.shipped||0)+" shipped"),
+          h("span",{style:{color:"var(--blue)"}},(funnel.greenlit||0)+" active"),
+          h("span",{style:{color:"var(--accent)"}},(funnel.pending||0)+" pending")
+        )
+      ):""
+    ));
+
+    // Detailed stats (hidden by default)
+    const pRes=prog.research||{};
+    const pCont=prog.content||{};
+    progressSection.appendChild(h("div",{class:"progress-detail",style:{display:"none"}},
+      h("div",{class:"stats"},
+        h("div",{class:"stat"},h("div",{class:"stat-label"},"Shipped"),h("div",{class:"stat-value",style:{color:"var(--green)"}},""+(pProp.shipped_this_month||0)),h("div",{class:"stat-sub"},"this month")),
+        h("div",{class:"stat"},h("div",{class:"stat-label"},"Research"),h("div",{class:"stat-value"},""+(pRes.entries_this_week||0)),h("div",{class:"stat-sub"},"this week")),
+        h("div",{class:"stat"},h("div",{class:"stat-label"},"Content"),h("div",{class:"stat-value"},""+(pCont.drafts_this_week||0)),h("div",{class:"stat-sub"},"this week")),
+        h("div",{class:"stat"},h("div",{class:"stat-label"},"Topics"),h("div",{class:"stat-value"},""+(pRes.topics_covered_this_month||0)+"/"+(pRes.total_topics||8)),h("div",{class:"stat-sub"},"covered"))
+      )
+    ));
+
+    wrap.appendChild(progressSection);
+  }
+
+  // ═══ STRATEGY (if available) ═══
+  const strategy=brief.latest_strategy;
+  if(strategy&&strategy.findings){
+    wrap.appendChild(h("div",{class:"ops-section"},
+      h("div",{class:"ops-section-title"},"🎯 Strategy"),
+      h("div",{class:"card",style:{fontSize:"12px",lineHeight:"1.5",color:"var(--muted)"}},strategy.findings.length>300?strategy.findings.slice(0,300)+"...":strategy.findings)
+    ));
+  }
+
+  // ═══ INTELLIGENCE (collapsed) ═══
+  const dossier=Array.isArray(cache.dossier)?cache.dossier:[];
+  if(dossier.length>0){
+    const intelSection=h("div",{class:"ops-section"});
+    intelSection.appendChild(h("div",{class:"ops-section-title",style:{cursor:"pointer"},onClick:()=>{
+      const detail=intelSection.querySelector(".intel-detail");
+      if(detail)detail.style.display=detail.style.display==="none"?"block":"none";
+    }},"🧠 Intelligence ("+dossier.length+") ▸"));
+    intelSection.appendChild(h("div",{class:"intel-detail",style:{display:"none"}},
+      ...dossier.slice(0,5).map(e=>h("div",{class:"dossier-entry"},
+        h("div",{class:"dossier-topic"},e.topic_id+" · "+e.category+(e.relevance==="high"?" 🔥":"")),
+        h("div",{class:"dossier-text"},e.findings.length>250?e.findings.slice(0,250)+"...":e.findings)
+      ))
+    ));
+    wrap.appendChild(intelSection);
+  }
+
+  // ═══ OVERNIGHT ACTIVITY (collapsed) ═══
+  const logs=brief.overnight_activity||[];
+  if(logs.length>0){
+    const blocked=logs.filter(l=>l.blocked);
+    const actSection=h("div",{class:"ops-section"});
+    actSection.appendChild(h("div",{class:"ops-section-title",style:{cursor:"pointer"},onClick:()=>{
+      const detail=actSection.querySelector(".activity-detail");
+      if(detail)detail.style.display=detail.style.display==="none"?"block":"none";
+    }},"🌙 Activity ("+logs.length+(blocked.length?" · "+blocked.length+" blocked":"")+") ▸"));
+    actSection.appendChild(h("div",{class:"activity-detail",style:{display:"none"}},
+      ...logs.slice(0,12).map(l=>h("div",{style:{fontSize:"11px",padding:"3px 0",borderBottom:"1px solid var(--border)",display:"flex",gap:"6px"}},
+        h("span",{style:{color:l.blocked?"var(--red)":"var(--muted)",flexShrink:"0"}},l.blocked?"✗":"·"),
+        h("span",{style:{color:"var(--blue)",flexShrink:"0",width:"60px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},l.agent),
+        h("span",{style:{color:"var(--muted)",flex:"1",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},l.detail||l.action)
+      ))
+    ));
+    wrap.appendChild(actSection);
+  }
+
+  return wrap;
+}
+
+function render(){
+  const app=document.getElementById("app");app.innerHTML="";const tab=data.tab||0;
+  const tabs=[{icon:"🏠",label:"Home"},{icon:"📁",label:"Projects"},{icon:"💡",label:"Ideas"},{icon:"📅",label:"Schedule"},{icon:"📝",label:"Notes"},{icon:"🤖",label:"Ops"}];
+  app.appendChild(h("div",{class:"header"},
+    h("div",{class:"logo"},h("span",{class:"logo-icon"},"🎛️"),h("span",{class:"logo-name"},"SIMONOTO"),h("span",{class:"logo-sub"},"COMMAND CENTER")),
+    h("button",{class:"header-reset",onClick:()=>{if(confirm("Reset all data?")){localStorage.removeItem(STORAGE_KEY);loadData();render();}}},"Reset")
+  ));
+  const content=h("div",{class:"content"});
+  switch(tab){case 0:content.appendChild(renderDashboard());break;case 1:content.appendChild(renderProjects());break;case 2:content.appendChild(renderIdeas());break;case 3:content.appendChild(renderSchedule());break;case 4:content.appendChild(renderBridge());break;case 5:content.appendChild(renderOps());break;}
+  app.appendChild(content);
+  app.appendChild(h("div",{class:"bottom-nav"},
+    ...tabs.map((t,i)=>h("button",{class:"nav-btn"+(tab===i?" active":""),onClick:()=>setTab(i)},h("span",{class:"nav-icon"},t.icon),t.label))
+  ));
+}
+
+// Initial load from localStorage (fast), then upgrade from Firebase
+loadData();render();
+
+(async()=>{
+  try{
+    const defaults=JSON.parse(JSON.stringify(DEFAULT_DATA));
+    const [projects,ideas,schedule,messages]=await Promise.all([
+      fbLoad("projects",defaults.projects),
+      fbLoad("ideas",defaults.ideas),
+      fbLoad("schedule",defaults.schedule),
+      fbLoad("messages",defaults.messages)
+    ]);
+    skipSync=true;
+    data.projects=projects;data.ideas=ideas;data.schedule=schedule;data.messages=messages;
+    // Cache to localStorage only (data already in Firebase)
+    try{localStorage.setItem(STORAGE_KEY,JSON.stringify(data));}catch(e){}
+    render();
+    skipSync=false;
+  }catch(e){console.warn("Firebase initial load failed",e);}
+
+  // Real-time listeners for cross-device sync
+  onDataChange("projects",val=>{data.projects=val;try{localStorage.setItem(STORAGE_KEY,JSON.stringify(data));}catch(e){}render();});
+  onDataChange("ideas",val=>{data.ideas=val;try{localStorage.setItem(STORAGE_KEY,JSON.stringify(data));}catch(e){}render();});
+  onDataChange("schedule",val=>{data.schedule=val;try{localStorage.setItem(STORAGE_KEY,JSON.stringify(data));}catch(e){}render();});
+  onDataChange("messages",val=>{data.messages=val;try{localStorage.setItem(STORAGE_KEY,JSON.stringify(data));}catch(e){}render();});
+})();
+
+if("serviceWorker"in navigator){const sw=`self.addEventListener("install",e=>self.skipWaiting());self.addEventListener("activate",e=>self.clients.claim());self.addEventListener("fetch",e=>e.respondWith(fetch(e.request).catch(()=>new Response("Offline",{status:503}))));`;navigator.serviceWorker.register(URL.createObjectURL(new Blob([sw],{type:"application/javascript"}))).catch(()=>{});}
+</script>
+</body>
+</html>

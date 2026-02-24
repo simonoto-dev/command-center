@@ -36,13 +36,16 @@ export function buildCronLines() {
     );
   }
 
-  // Career intelligence research — rotates topics automatically
-  // Staggered at :30 to avoid colliding with scans (5 projects use :00-:20)
+  // Career intelligence research — 1x nightly (was 2x, reduced to avoid busywork)
+  // Rotates topics automatically. At :30 to avoid colliding with scans.
   lines.push(
-    `30 1 * * * curl -sf -X POST ${ORCHESTRATOR_URL}/dispatch -H 'Content-Type: application/json' -d '{"taskType":"career-research","domain":"career"}' >> /tmp/simonoto-cron.log 2>&1 ${CRON_TAG}`,
+    `30 2 * * * curl -sf -X POST ${ORCHESTRATOR_URL}/dispatch -H 'Content-Type: application/json' -d '{"taskType":"career-research","domain":"career"}' >> /tmp/simonoto-cron.log 2>&1 ${CRON_TAG}`,
   );
+
+  // Sync licensing opportunity scan — 2x per week (Tue/Thu at 3am)
+  // Highest-leverage revenue activity: one sync placement = months of lesson income
   lines.push(
-    `30 4 * * * curl -sf -X POST ${ORCHESTRATOR_URL}/dispatch -H 'Content-Type: application/json' -d '{"taskType":"career-research","domain":"career"}' >> /tmp/simonoto-cron.log 2>&1 ${CRON_TAG}`,
+    `0 3 * * 2,4 curl -sf -X POST ${ORCHESTRATOR_URL}/dispatch -H 'Content-Type: application/json' -d '{"taskType":"sync-licensing-scan","domain":"career"}' >> /tmp/simonoto-cron.log 2>&1 ${CRON_TAG}`,
   );
 
   // Sandbox execution — try to implement greenlit proposals every 3 hours at :45

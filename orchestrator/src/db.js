@@ -72,6 +72,41 @@ export function createDb(path) {
       source     TEXT NOT NULL DEFAULT 'agent',
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS revenue (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      type       TEXT NOT NULL,
+      amount     REAL NOT NULL,
+      description TEXT NOT NULL,
+      date       TEXT NOT NULL,
+      recurring  INTEGER NOT NULL DEFAULT 0,
+      source     TEXT NOT NULL DEFAULT 'manual',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS gigs (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      title       TEXT NOT NULL,
+      venue       TEXT,
+      date        TEXT NOT NULL,
+      pay         REAL,
+      status      TEXT NOT NULL DEFAULT 'upcoming',
+      notes       TEXT,
+      created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS opportunities (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      type        TEXT NOT NULL,
+      title       TEXT NOT NULL,
+      platform    TEXT,
+      url         TEXT,
+      deadline    TEXT,
+      details     TEXT,
+      status      TEXT NOT NULL DEFAULT 'new',
+      source      TEXT NOT NULL DEFAULT 'agent',
+      created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 
   // Insert default system_state values (only if not already present)
