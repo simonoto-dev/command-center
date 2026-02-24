@@ -61,7 +61,7 @@ cd mcp-server && npm start
 
 ## Database Schema (SQLite)
 
-Tables: `system_state` (key-value config), `proposals`, `audit_log`, `scan_results`, `api_usage`, `dossier_entries`. Created in `db.js`.
+Tables: `system_state` (key-value config), `proposals`, `audit_log`, `scan_results`, `api_usage`, `dossier_entries`, `revenue`, `gigs`, `opportunities`. Created in `db.js`.
 
 ## File Layout
 
@@ -81,6 +81,7 @@ orchestrator/
     sleep-scheduler.js — Auto mode transitions by time
     cron-setup.js    — Crontab management for overnight operations
     nodes.js         — Node registry + health checks
+    revenue.js       — Revenue, gig, and opportunity tracking
     scan-runner.js   — Health scan orchestration
     audit.js         — Audit logging
     notify.js        — Notification dispatch
