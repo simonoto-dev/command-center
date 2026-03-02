@@ -107,6 +107,15 @@ export function createDb(path) {
       source      TEXT NOT NULL DEFAULT 'agent',
       created_at  TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS memory_notes (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      title      TEXT NOT NULL,
+      body       TEXT NOT NULL,
+      source     TEXT NOT NULL DEFAULT 'api',
+      read       INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 
   // Insert default system_state values (only if not already present)
@@ -123,6 +132,8 @@ export function createDb(path) {
     insertDefault.run('budget_cost_per_call', '0.01');
     insertDefault.run('max_calls_per_agent_per_hour', '20');
     insertDefault.run('max_consecutive_failures', '5');
+    insertDefault.run('executor_preference', 'auto');
+    insertDefault.run('executor_last_poll', '');
   });
 
   defaults();

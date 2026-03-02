@@ -230,7 +230,7 @@ export function createServer({ dbPath }) {
         task = draftProposalTask(domain, observation, context);
         break;
       case 'overnight-scan':
-        task = overnightScanTask(domain);
+        task = overnightScanTask(domain, db);
         break;
       case 'career-research':
         task = careerResearchTask(db);
@@ -340,7 +340,7 @@ export function createServer({ dbPath }) {
         if (parsed.title && parsed.body) proposals.push(parsed);
         for (const p of proposals) {
           if (p && p.title && p.body) {
-            createProposal(db, {
+            const created = createProposal(db, {
               domain,
               title: p.title,
               body: p.body,
@@ -348,6 +348,21 @@ export function createServer({ dbPath }) {
               recommendation: p.recommendation || 'none',
               source: `openclaw:${taskType}@${result.node || 'pi1'}`,
             });
+
+            // Auto-greenlight: if the proposal is new (not deduped), the recommendation
+            // is greenlight, and effort is small/medium, auto-approve for overnight execution.
+            // The executor daemon will pick it up and work on a branch.
+            if (created && !created._deduplicated
+                && p.recommendation === 'greenlight'
+                && ['small', 'medium'].includes(p.effort)) {
+              resolveProposal(db, created.id, 'greenlit', 'Auto-greenlighted for overnight execution');
+              logAction(db, {
+                agent: 'auto-greenlight',
+                action: 'auto_greenlight',
+                domain,
+                detail: `Proposal #${created.id} "${p.title}" auto-greenlighted (${p.effort}, recommended)`,
+              });
+            }
           }
         }
       } catch {
@@ -359,11 +374,28 @@ export function createServer({ dbPath }) {
   });
 
   // --- POST /sandbox/run ---
-  // Auto-executes the next greenlit proposal in the sandbox
+  // Auto-executes the next greenlit proposal in the sandbox.
+  // If Claude Code executor is connected and preferred, skips OpenClaw sandbox.
   app.post('/sandbox/run', async (_req, res) => {
     const greenlit = listProposals(db, { status: 'greenlit' });
     if (greenlit.length === 0) {
       return res.json({ ok: true, message: 'No greenlit proposals to execute', executed: 0 });
+    }
+
+    // Check if executor daemon is available
+    const pref = db.prepare('SELECT value FROM system_state WHERE key = ?').get('executor_preference');
+    const lastPoll = db.prepare('SELECT value FROM system_state WHERE key = ?').get('executor_last_poll');
+    const preference = pref?.value || 'auto';
+    const executorConnected = lastPoll?.value && (Date.now() - new Date(lastPoll.value).getTime()) < 5 * 60 * 1000;
+
+    // If executor is connected and preferred, let the executor daemon handle it
+    if ((preference === 'claude-code' || (preference === 'auto' && executorConnected))) {
+      return res.json({
+        ok: true,
+        message: 'Claude Code executor is active — proposal will be picked up by executor daemon',
+        executorConnected: true,
+        greenlitCount: greenlit.length,
+      });
     }
 
     const proposal = greenlit[0]; // oldest first
@@ -421,11 +453,165 @@ export function createServer({ dbPath }) {
     }
   });
 
-  // --- POST /cron/install ---
-  app.post('/cron/install', async (_req, res) => {
+  // ==========================================================================
+  // Executor endpoints (Claude Code executor daemon on Desktop)
+  // ==========================================================================
+
+  // --- GET /executor/next ---
+  // Returns the oldest greenlit proposal ready for Claude Code execution.
+  app.get('/executor/next', async (_req, res) => {
+    // Update last poll timestamp
+    db.prepare('INSERT OR REPLACE INTO system_state (key, value) VALUES (?, ?)')
+      .run('executor_last_poll', new Date().toISOString());
+
+    const pref = db.prepare('SELECT value FROM system_state WHERE key = ?').get('executor_preference');
+    const preference = pref?.value || 'auto';
+
+    // If preference is 'openclaw', don't give tasks to the executor
+    if (preference === 'openclaw') {
+      return res.json({ task: null, message: 'Executor preference is openclaw — no tasks for claude-code' });
+    }
+
+    const greenlit = listProposals(db, { status: 'greenlit' });
+    if (greenlit.length === 0) {
+      return res.json({ task: null, message: 'No greenlit proposals' });
+    }
+
+    const proposal = greenlit[0]; // oldest first
+
+    // Load project info for context
+    let project = null;
     try {
-      const result = await installCron();
-      logAction(db, { agent: 'api', action: 'maintenance', domain: 'system', detail: `Installed ${result.installed} cron jobs` });
+      const { readFileSync } = await import('node:fs');
+      const projects = JSON.parse(readFileSync(new URL('../projects.json', import.meta.url), 'utf-8'));
+      project = projects[proposal.domain] || null;
+    } catch {}
+
+    // Build the prompt for claude -p
+    const branchName = `gift/proposal-${proposal.id}`;
+    const prompt = [
+      `You are the Team Simonoto executor. You build things overnight as gifts for Simon (musician/producer). Do the work, commit it on a branch, and report what you built.`,
+      '',
+      `## Proposal #${proposal.id}: ${proposal.title}`,
+      '',
+      proposal.body,
+      '',
+      `## Project: ${project?.name || proposal.domain}`,
+      project?.localPath ? `## Working directory: ${project.localPath}` : '',
+      project?.notes ? `## Context: ${project.notes}` : '',
+      project?.buildCmd ? `## Build command: ${project.buildCmd}` : '',
+      project?.testCmd ? `## Test command: ${project.testCmd}` : '',
+      '',
+      '## Instructions',
+      project?.localPath ? `1. cd to "${project.localPath}"` : '1. Clone the repo if needed',
+      `2. Create branch: git checkout -b ${branchName}`,
+      '3. Implement the changes described above. Be precise and minimal.',
+      project?.testCmd ? `4. Run tests: ${project.testCmd}` : '4. Verify your changes work.',
+      project?.buildCmd ? `5. Run build: ${project.buildCmd}` : '',
+      `5. Commit your work with a clear message.`,
+      '6. Do NOT push. Do NOT merge to main. Do NOT deploy. Just commit on the branch.',
+      '',
+      '## Response',
+      'Respond with JSON:',
+      `{ "status": "success"|"partial"|"failed", "summary": "What you built (2-3 sentences for Simon to read in the morning)", "branch": "${branchName}", "files_changed": ["path/to/file1", "path/to/file2"] }`,
+    ].filter(Boolean).join('\n');
+
+    logAction(db, {
+      agent: 'executor-daemon',
+      action: 'executor_pickup',
+      domain: proposal.domain,
+      detail: `Proposal #${proposal.id} picked up by Claude Code executor`,
+    });
+
+    res.json({
+      task: {
+        proposalId: proposal.id,
+        domain: proposal.domain,
+        title: proposal.title,
+        prompt,
+      },
+    });
+  });
+
+  // --- POST /executor/result ---
+  // Receives execution results from the Desktop executor daemon.
+  app.post('/executor/result', (req, res) => {
+    const { proposalId, output, success } = req.body;
+    if (!proposalId) {
+      return res.status(400).json({ error: 'proposalId is required' });
+    }
+
+    const proposals = listProposals(db, {});
+    const proposal = proposals.find(p => p.id === Number(proposalId));
+    if (!proposal) {
+      return res.status(404).json({ error: `Proposal #${proposalId} not found` });
+    }
+
+    if (success) {
+      resolveProposal(db, proposal.id, 'shipped', `Claude Code executor: ${(output || '').slice(0, 500)}`);
+      logAction(db, {
+        agent: 'executor-daemon',
+        action: 'executor_complete',
+        domain: proposal.domain,
+        detail: `Proposal #${proposal.id} shipped by Claude Code executor`,
+      });
+    } else {
+      resolveProposal(db, proposal.id, 'shelved', `Claude Code executor failed: ${(output || '').slice(0, 500)}`);
+      logAction(db, {
+        agent: 'executor-daemon',
+        action: 'executor_failed',
+        domain: proposal.domain,
+        detail: `Proposal #${proposal.id} failed in Claude Code executor`,
+      });
+    }
+
+    res.json({ ok: true, proposalId: proposal.id, status: success ? 'shipped' : 'shelved' });
+  });
+
+  // --- GET /executor/status ---
+  // Shows executor daemon health info.
+  app.get('/executor/status', (_req, res) => {
+    const lastPoll = db.prepare('SELECT value FROM system_state WHERE key = ?').get('executor_last_poll');
+    const pref = db.prepare('SELECT value FROM system_state WHERE key = ?').get('executor_preference');
+
+    const lastPollTime = lastPoll?.value || null;
+    let connected = false;
+    if (lastPollTime) {
+      const elapsed = Date.now() - new Date(lastPollTime).getTime();
+      connected = elapsed < 5 * 60 * 1000; // polled within last 5 minutes
+    }
+
+    res.json({
+      connected,
+      lastPoll: lastPollTime,
+      preference: pref?.value || 'auto',
+    });
+  });
+
+  // --- POST /executor/preference ---
+  // Set executor preference (claude-code, openclaw, auto)
+  app.post('/executor/preference', (req, res) => {
+    const { preference } = req.body;
+    const valid = ['claude-code', 'openclaw', 'auto'];
+    if (!preference || !valid.includes(preference)) {
+      return res.status(400).json({ error: `preference must be one of: ${valid.join(', ')}` });
+    }
+    db.prepare('INSERT OR REPLACE INTO system_state (key, value) VALUES (?, ?)')
+      .run('executor_preference', preference);
+    logAction(db, {
+      agent: 'api',
+      action: 'set_executor_preference',
+      domain: 'system',
+      detail: `Executor preference set to ${preference}`,
+    });
+    res.json({ preference });
+  });
+
+  // --- POST /cron/install ---
+  app.post('/cron/install', (_req, res) => {
+    try {
+      const result = installCron();
+      logAction(db, { agent: 'api', action: 'maintenance', domain: 'system', detail: `Installed ${result.installed} in-process cron jobs` });
       res.json(result);
     } catch (e) {
       res.status(500).json({ error: e.message });
@@ -433,10 +619,10 @@ export function createServer({ dbPath }) {
   });
 
   // --- POST /cron/uninstall ---
-  app.post('/cron/uninstall', async (_req, res) => {
+  app.post('/cron/uninstall', (_req, res) => {
     try {
-      const result = await uninstallCron();
-      logAction(db, { agent: 'api', action: 'maintenance', domain: 'system', detail: 'Uninstalled cron jobs' });
+      const result = uninstallCron();
+      logAction(db, { agent: 'api', action: 'maintenance', domain: 'system', detail: 'Uninstalled in-process cron jobs' });
       res.json(result);
     } catch (e) {
       res.status(500).json({ error: e.message });
@@ -444,9 +630,9 @@ export function createServer({ dbPath }) {
   });
 
   // --- GET /cron/status ---
-  app.get('/cron/status', async (_req, res) => {
+  app.get('/cron/status', (_req, res) => {
     try {
-      const result = await listCron();
+      const result = listCron();
       res.json(result);
     } catch (e) {
       res.status(500).json({ error: e.message });
@@ -741,6 +927,67 @@ export function createServer({ dbPath }) {
     res.json(getUpcomingDeadlines(db, days));
   });
 
+  // ==========================================================================
+  // Memory notes (cross-session context bridge)
+  // ==========================================================================
+
+  // --- GET /memory ---
+  // Returns memory notes. ?unread=true for only unread notes.
+  app.get('/memory', (req, res) => {
+    const unreadOnly = req.query.unread === 'true';
+    const limit = req.query.limit ? Number(req.query.limit) : 50;
+    const rows = unreadOnly
+      ? db.prepare('SELECT * FROM memory_notes WHERE read = 0 ORDER BY created_at DESC LIMIT ?').all(limit)
+      : db.prepare('SELECT * FROM memory_notes ORDER BY created_at DESC LIMIT ?').all(limit);
+    res.json(rows);
+  });
+
+  // --- POST /memory ---
+  // Save a memory note. { title, body, source }
+  app.post('/memory', (req, res) => {
+    const { title, body, source } = req.body;
+    if (!title || !body) {
+      return res.status(400).json({ error: 'title and body are required' });
+    }
+    const result = db.prepare(
+      'INSERT INTO memory_notes (title, body, source) VALUES (?, ?, ?)'
+    ).run(title, body, source || 'api');
+
+    logAction(db, {
+      agent: source || 'api',
+      action: 'save_memory',
+      domain: 'system',
+      detail: `Memory note: ${title}`,
+    });
+
+    res.status(201).json({
+      id: result.lastInsertRowid,
+      title,
+      body,
+      source: source || 'api',
+      read: 0,
+      created_at: new Date().toISOString(),
+    });
+  });
+
+  // --- POST /memory/:id/read ---
+  // Mark a memory note as read.
+  app.post('/memory/:id/read', (req, res) => {
+    const { id } = req.params;
+    const result = db.prepare('UPDATE memory_notes SET read = 1 WHERE id = ?').run(Number(id));
+    if (result.changes === 0) {
+      return res.status(404).json({ error: 'note not found' });
+    }
+    res.json({ ok: true, id: Number(id) });
+  });
+
+  // --- POST /memory/read-all ---
+  // Mark all memory notes as read.
+  app.post('/memory/read-all', (_req, res) => {
+    db.prepare('UPDATE memory_notes SET read = 1 WHERE read = 0').run();
+    res.json({ ok: true });
+  });
+
   // --- POST /anomalies/threshold ---
   app.post('/anomalies/threshold', (req, res) => {
     const { key, value } = req.body;
@@ -765,7 +1012,20 @@ export function createServer({ dbPath }) {
 
   // Start the sleep scheduler (auto-transitions mode based on time)
   const schedulerInterval = startScheduler(db);
-  server.on('close', () => clearInterval(schedulerInterval));
+
+  // Auto-install in-process cron jobs on startup
+  try {
+    const cronResult = installCron();
+    console.log(`[startup] ${cronResult.installed} cron jobs installed`);
+  } catch (e) {
+    console.error(`[startup] Failed to install cron jobs: ${e.message}`);
+  }
+
+  // Clean up on server close
+  server.on('close', () => {
+    clearInterval(schedulerInterval);
+    uninstallCron();
+  });
 
   return { app, server, db };
 }
