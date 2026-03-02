@@ -10,7 +10,7 @@ import { generateBrief } from './brief.js';
 import { sendNotification } from './notify.js';
 import { runHealthScan } from './scan-runner.js';
 import { dispatch } from './openclaw.js';
-import { analyzeHealthTask, researchTask, draftProposalTask, overnightScanTask, careerResearchTask, sandboxExecuteTask, strategySynthesisTask, contentDraftTask, syncLicensingScanTask } from './agent-tasks.js';
+import { analyzeHealthTask, researchTask, draftProposalTask, overnightScanTask, careerResearchTask, sandboxExecuteTask, strategySynthesisTask, contentDraftTask, socialPostTask, syncLicensingScanTask } from './agent-tasks.js';
 import { installCron, uninstallCron, listCron } from './cron-setup.js';
 import { checkAllNodes, loadNodes } from './nodes.js';
 import { getSchedule, setSchedule, startScheduler } from './sleep-scheduler.js';
@@ -240,6 +240,15 @@ export function createServer({ dbPath }) {
         break;
       case 'content-draft':
         task = contentDraftTask(db, req.body.platform);
+        break;
+      case 'social-post':
+        task = socialPostTask({
+          filePath: req.body.filePath,
+          caption: req.body.caption,
+          platforms: req.body.platforms,
+          hashtags: req.body.hashtags,
+          proposalId: req.body.proposalId,
+        });
         break;
       case 'sync-licensing-scan':
         task = syncLicensingScanTask(db);
@@ -986,6 +995,41 @@ export function createServer({ dbPath }) {
   app.post('/memory/read-all', (_req, res) => {
     db.prepare('UPDATE memory_notes SET read = 1 WHERE read = 0').run();
     res.json({ ok: true });
+  });
+
+  // --- Social Media Posts ---
+
+  app.get('/social-posts', (_req, res) => {
+    const { platform, status, limit } = _req.query;
+    let sql = 'SELECT * FROM social_posts WHERE 1=1';
+    const params = [];
+    if (platform) { sql += ' AND platform = ?'; params.push(platform); }
+    if (status) { sql += ' AND status = ?'; params.push(status); }
+    sql += ' ORDER BY created_at DESC';
+    if (limit) { sql += ' LIMIT ?'; params.push(Number(limit)); }
+    const rows = db.prepare(sql).all(...params);
+    res.json(rows);
+  });
+
+  app.post('/social-posts', (req, res) => {
+    const { proposal_id, platform, post_url, caption, file_path, status, error } = req.body;
+    if (!platform) return res.status(400).json({ error: 'platform is required' });
+
+    const result = db.prepare(`
+      INSERT INTO social_posts (proposal_id, platform, post_url, caption, file_path, status, error, posted_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      proposal_id || null,
+      platform,
+      post_url || null,
+      caption || null,
+      file_path || null,
+      status || 'pending',
+      error || null,
+      status === 'posted' ? new Date().toISOString() : null
+    );
+
+    res.json({ id: Number(result.lastInsertRowid), status: status || 'pending' });
   });
 
   // --- POST /anomalies/threshold ---

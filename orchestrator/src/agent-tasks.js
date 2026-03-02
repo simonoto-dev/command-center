@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { getTopics, getReferences, getRecentEntries, pickNextTopic } from './dossier.js';
+import { recentProposalsForDomain } from './proposals.js';
 
 function loadProjects() {
   return JSON.parse(readFileSync(new URL('../projects.json', import.meta.url), 'utf-8'));
@@ -217,6 +218,50 @@ Respond with a JSON object:
 }
 
 /**
+ * Post content to social media platforms using the unified posting script.
+ * Designed for executor daemon execution (runs on Desktop with access to D: drive).
+ * @param {object} opts
+ * @param {string} opts.filePath - Path to video file on Desktop
+ * @param {string} opts.caption - Caption text
+ * @param {string} [opts.platforms] - Comma-separated platforms (default: all)
+ * @param {string} [opts.hashtags] - Comma-separated hashtags
+ * @param {number} [opts.proposalId] - Source proposal ID for tracking
+ * @returns {object} Task for dispatch()
+ */
+export function socialPostTask({ filePath, caption, platforms, hashtags, proposalId }) {
+  const platformList = platforms || 'youtube,instagram,tiktok';
+  const hashtagFlag = hashtags ? ` --hashtags "${hashtags}"` : '';
+  const cmd = `python "D:/Videos/social_post.py" "${filePath}" "${caption}" --platforms ${platformList}${hashtagFlag} --privacy public`;
+
+  return {
+    action: 'execute',
+    domain: 'content',
+    agentName: 'agent:social-poster',
+    message: `Post a video to social media. Run this command and report the JSON output:
+
+${cmd}
+
+After posting, log each platform result to the orchestrator:
+POST https://bones.professoroffunk.com/social-posts
+Content-Type: application/json
+
+For each platform in the JSON output, send:
+{
+  "proposal_id": ${proposalId || 'null'},
+  "platform": "<platform name>",
+  "post_url": "<url if posted>",
+  "caption": ${JSON.stringify(caption)},
+  "file_path": ${JSON.stringify(filePath)},
+  "status": "<posted|failed|saved-locally>",
+  "error": "<error message if failed, null otherwise>"
+}
+
+Report all results.`,
+    options: { timeoutSeconds: 300, thinking: 'low' },
+  };
+}
+
+/**
  * Scan sync licensing platforms for open briefs matching Simon's style.
  * This is the highest-leverage revenue activity: one sync placement can
  * equal months of lesson income.
@@ -344,11 +389,23 @@ Respond with a JSON object:
 /**
  * Run an overnight scan cycle — health check + analysis + draft proposals.
  * @param {string} domain - Project domain key
+ * @param {import('better-sqlite3').Database} [db] - For proposal history context
  * @returns {object} Task for dispatch()
  */
-export function overnightScanTask(domain) {
+export function overnightScanTask(domain, db) {
   const projects = loadProjects();
   const project = projects[domain];
+
+  // Give the scanner context about recent proposals so it doesn't repeat them
+  let recentContext = '';
+  if (db) {
+    const recent = recentProposalsForDomain(db, domain, 14);
+    if (recent.length > 0) {
+      const lines = recent.map(p => `- [${p.status}] ${p.title}${p.resolution_note ? ` (${p.resolution_note.slice(0, 80)})` : ''}`);
+      recentContext = `\nRECENT PROPOSALS (last 14 days) — DO NOT re-propose these:\n${lines.join('\n')}\n`;
+    }
+  }
+
   return {
     action: 'scan',
     domain,
@@ -358,13 +415,14 @@ export function overnightScanTask(domain) {
 Project: ${project?.name || domain}
 URLs: ${JSON.stringify(project?.urls || [])}
 Type: ${project?.type || 'unknown'}
-
-Check for:
-1. Any issues you can identify from the project description
-2. Opportunities for improvement
-3. Maintenance tasks that might be needed
-4. Deprecation risks — if the project has a "deploy" config with "deprecationRisk": true, check whether the auth method (e.g. FIREBASE_TOKEN) has been removed or broken in the latest version of the deploy tool (e.g. firebase-tools). Flag this as HIGH PRIORITY if the deprecation has become a breaking change.
-${project?.deploy ? `\nDEPLOY CONFIG: ${JSON.stringify(project.deploy)}\nThis project uses ${project.deploy.auth} for deployment auth. Firebase has warned this will be removed in a future major version. Monitor firebase-tools releases for breaking changes.` : ''}
+Notes: ${project?.notes || 'none'}
+${recentContext}
+RULES:
+- Only propose NEW, actionable work. Do not repeat anything from the recent proposals list above.
+- Focus on real issues — broken URLs, security risks, actual bugs — not speculative improvements.
+- "Update X version" or "verify Y works" are low-value unless there's a specific known issue.
+- If the project looks healthy, respond with status "ok" and an empty proposals array. It is OK to find nothing wrong.
+${project?.deploy?.deprecationRisk ? `\nDEPLOY CONFIG: ${JSON.stringify(project.deploy)}\nThis project uses ${project.deploy.auth} for deployment auth. Only flag this if the deprecation has become a BREAKING change in the latest version.` : ''}
 
 Respond with a JSON object: {"status": "ok|needs-attention", "findings": ["..."], "proposals": [{"title": "...", "body": "...", "effort": "small|medium|large", "recommendation": "greenlight|research-more|shelve"}]}`,
     options: { timeoutSeconds: 120, thinking: 'medium' },

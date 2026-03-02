@@ -116,6 +116,19 @@ export function createDb(path) {
       read       INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS social_posts (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      proposal_id INTEGER,
+      platform    TEXT NOT NULL,
+      post_url    TEXT,
+      caption     TEXT,
+      file_path   TEXT,
+      status      TEXT NOT NULL DEFAULT 'pending',
+      error       TEXT,
+      posted_at   TEXT,
+      created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 
   // Insert default system_state values (only if not already present)
