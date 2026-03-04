@@ -10,14 +10,14 @@ import { generateBrief } from './brief.js';
 import { sendNotification } from './notify.js';
 import { runHealthScan } from './scan-runner.js';
 import { dispatch } from './openclaw.js';
-import { analyzeHealthTask, researchTask, draftProposalTask, overnightScanTask, careerResearchTask, sandboxExecuteTask, strategySynthesisTask, contentDraftTask, socialPostTask, syncLicensingScanTask } from './agent-tasks.js';
+import { analyzeHealthTask, researchTask, draftProposalTask, overnightScanTask, careerResearchTask, sandboxExecuteTask, strategySynthesisTask, contentDraftTask, socialPostTask, syncLicensingScanTask, revenueAuditTask } from './agent-tasks.js';
 import { installCron, uninstallCron, listCron } from './cron-setup.js';
 import { checkAllNodes, loadNodes } from './nodes.js';
 import { getSchedule, setSchedule, startScheduler } from './sleep-scheduler.js';
 import { getBudgetStatus, setCeiling, setCostPerCall } from './budget.js';
 import { checkAnomalies, getAnomalyThresholds, setAnomalyThreshold } from './anomaly.js';
 import { getRecentEntries, getEntries, getTopics, getReferences, addEntry } from './dossier.js';
-import { addRevenue, getRevenueSummary, getMonthlyTrend, addGig, listGigs, updateGig, addOpportunity, listOpportunities, updateOpportunity, getUpcomingDeadlines } from './revenue.js';
+import { addRevenue, getRevenueSummary, getMonthlyTrend, addGig, listGigs, updateGig, addOpportunity, listOpportunities, updateOpportunity, getUpcomingDeadlines, upsertStream, listStreams, updateStream, analyzeStreams } from './revenue.js';
 
 /**
  * Create and configure the Express API server.
@@ -252,6 +252,9 @@ export function createServer({ dbPath }) {
         break;
       case 'sync-licensing-scan':
         task = syncLicensingScanTask(db);
+        break;
+      case 'revenue-audit':
+        task = revenueAuditTask(db);
         break;
       case 'sandbox-execute': {
         const proposalId = req.body.proposalId;
@@ -934,6 +937,56 @@ export function createServer({ dbPath }) {
   app.get('/deadlines', (req, res) => {
     const days = req.query.days ? Number(req.query.days) : 14;
     res.json(getUpcomingDeadlines(db, days));
+  });
+
+  // --- Revenue Streams ---
+
+  // GET /revenue/streams — list all revenue streams
+  app.get('/revenue/streams', (req, res) => {
+    res.json(listStreams(db, { status: req.query.status }));
+  });
+
+  // POST /revenue/streams — create or update a revenue stream
+  app.post('/revenue/streams', (req, res) => {
+    const { name, type } = req.body;
+    if (!name || !type) {
+      return res.status(400).json({ error: 'name and type are required' });
+    }
+    const stream = upsertStream(db, req.body);
+    logAction(db, { agent: req.body.source || 'api', action: 'upsert_stream', domain: 'revenue', detail: `${type}: ${name}` });
+    res.status(201).json(stream);
+  });
+
+  // POST /revenue/streams/:id — update a revenue stream
+  app.post('/revenue/streams/:id', (req, res) => {
+    const stream = updateStream(db, Number(req.params.id), req.body);
+    if (!stream) return res.status(404).json({ error: 'stream not found' });
+    res.json(stream);
+  });
+
+  // GET /revenue/streams/analysis — gap analysis report
+  app.get('/revenue/streams/analysis', (req, res) => {
+    res.json(analyzeStreams(db));
+  });
+
+  // POST /revenue/streams/seed — seed Simon's known revenue streams
+  app.post('/revenue/streams/seed', (_req, res) => {
+    const seeds = [
+      // Active streams
+      { name: 'Private Lessons', type: 'lessons', status: 'active', monthly_estimate: 0, monthly_goal: 2000, frequency: 'monthly', notes: 'Guitar/bass/production lessons. Core income stream. Track per-student rate and retention.', priority: 10 },
+      { name: 'Streaming (Spotify/Apple/etc)', type: 'streaming', status: 'active', monthly_estimate: 0, monthly_goal: 200, frequency: 'monthly', notes: 'Distributor royalties via DistroKid. Low per-stream but compounds.', priority: 5 },
+      { name: 'Live Gigs', type: 'gigs', status: 'active', monthly_estimate: 0, monthly_goal: 500, frequency: 'per-event', notes: 'Solo and band performances. Variable — depends on booking cadence.', priority: 7 },
+      { name: 'Sync Licensing', type: 'licensing', status: 'active', monthly_estimate: 0, monthly_goal: 500, frequency: 'per-event', notes: 'TV/film/ad placements via Songtradr, Musicbed, etc. High leverage — one placement can equal months of lessons.', priority: 9 },
+      // Potential new streams
+      { name: 'Sample Pack (Original Tracks)', type: 'merch', status: 'potential', monthly_estimate: 0, monthly_goal: 300, frequency: 'monthly', notes: 'Curate loops, one-shots, stems from original productions. Sell on Splice, Gumroad, or Bandcamp. Passive income once created.', priority: 6 },
+      { name: 'Patreon / Membership', type: 'other', status: 'potential', monthly_estimate: 0, monthly_goal: 500, frequency: 'monthly', notes: 'Behind-the-scenes studio content, production tips, early releases. Builds superfan community. Consider tiered: $5 BTS / $15 stems+tips / $25 monthly lesson.', priority: 8 },
+      { name: 'Tiered Teaching (Group Classes)', type: 'lessons', status: 'potential', monthly_estimate: 0, monthly_goal: 800, frequency: 'monthly', notes: 'Group workshops (funk guitar, production basics). Higher $/hr than 1-on-1. Could run via Professor of Funk platform.', priority: 7 },
+      { name: 'YouTube Ad Revenue', type: 'streaming', status: 'potential', monthly_estimate: 0, monthly_goal: 150, frequency: 'monthly', notes: 'Monetize tutorial/performance content. Requires 1K subs + 4K watch hours. Compounds with teaching brand.', priority: 4 },
+    ];
+
+    const results = seeds.map(s => upsertStream(db, s));
+    logAction(db, { agent: 'api', action: 'seed_streams', domain: 'revenue', detail: `Seeded ${results.length} revenue streams` });
+    res.json({ seeded: results.length, streams: results });
   });
 
   // ==========================================================================

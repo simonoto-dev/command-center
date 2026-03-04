@@ -3,7 +3,7 @@ import { getRecentLogs } from './audit.js';
 import { getBudgetStatus } from './budget.js';
 import { checkAnomalies } from './anomaly.js';
 import { getRecentEntries, getEntries } from './dossier.js';
-import { getRevenueSummary, listGigs, listOpportunities, getUpcomingDeadlines } from './revenue.js';
+import { getRevenueSummary, listGigs, listOpportunities, getUpcomingDeadlines, analyzeStreams } from './revenue.js';
 
 /**
  * Generate a morning brief — an actionable daily cockpit.
@@ -31,11 +31,13 @@ export function generateBrief(db) {
   let upcomingGigs = [];
   let newOpportunities = [];
   let deadlines = [];
+  let streamAnalysis = null;
   try {
     revenue = getRevenueSummary(db);
     upcomingGigs = listGigs(db, { status: 'upcoming', limit: 5 });
     newOpportunities = listOpportunities(db, { status: 'new', limit: 10 });
     deadlines = getUpcomingDeadlines(db, 14);
+    streamAnalysis = analyzeStreams(db);
   } catch {
     // Revenue tables may not exist yet on older DBs
   }
@@ -83,6 +85,12 @@ export function generateBrief(db) {
   }
   if (revenue && revenue.total > 0) {
     tldr.push(`$${revenue.total.toFixed(0)} earned this month`);
+  }
+  if (streamAnalysis && streamAnalysis.summary.total_gap > 0) {
+    tldr.push(`$${streamAnalysis.summary.total_gap.toFixed(0)}/mo revenue gap (${streamAnalysis.summary.gap_pct}% to goal)`);
+  }
+  if (streamAnalysis && streamAnalysis.summary.potential_streams > 0) {
+    tldr.push(`${streamAnalysis.summary.potential_streams} potential revenue stream${streamAnalysis.summary.potential_streams > 1 ? 's' : ''} to activate`);
   }
 
   // Ranked actions — what Simon should do first
@@ -139,6 +147,8 @@ export function generateBrief(db) {
       month_to_date: revenue.total,
       by_type: revenue.byType,
       upcoming_gigs: upcomingGigs.length,
+      streams: streamAnalysis ? streamAnalysis.summary : null,
+      top_gaps: streamAnalysis ? streamAnalysis.gaps.slice(0, 3) : [],
     } : null,
 
     // Opportunities

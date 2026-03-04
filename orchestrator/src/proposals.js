@@ -83,6 +83,21 @@ export function listProposals(db, { status, domain, limit } = {}) {
 }
 
 /**
+ * Get recent proposals for a domain (for dedup context in agent tasks).
+ * @param {import('better-sqlite3').Database} db
+ * @param {string} domain
+ * @param {number} [days=14]
+ * @returns {object[]}
+ */
+export function recentProposalsForDomain(db, domain, days = 14) {
+  return db.prepare(`
+    SELECT * FROM proposals
+    WHERE domain = ? AND created_at >= datetime('now', '-' || ? || ' days')
+    ORDER BY created_at DESC
+  `).all(domain, days);
+}
+
+/**
  * Resolve a proposal with a status and optional note.
  * @param {import('better-sqlite3').Database} db
  * @param {number} id - Proposal ID

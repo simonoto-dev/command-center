@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { getTopics, getReferences, getRecentEntries, pickNextTopic } from './dossier.js';
 import { recentProposalsForDomain } from './proposals.js';
+import { listStreams, analyzeStreams, getRevenueSummary, getMonthlyTrend } from './revenue.js';
 
 function loadProjects() {
   return JSON.parse(readFileSync(new URL('../projects.json', import.meta.url), 'utf-8'));
@@ -316,6 +317,56 @@ Respond with a JSON object:
 }`,
     options: { timeoutSeconds: 180, thinking: 'medium', sessionId: 'sync-licensing' },
     _tier: 'medium',
+  };
+}
+
+/**
+ * Audit revenue streams: compare actual revenue to goals, identify gaps,
+ * and recommend new streams or adjustments.
+ * @param {import('better-sqlite3').Database} db
+ * @returns {object} Task for dispatch()
+ */
+export function revenueAuditTask(db) {
+  const streams = listStreams(db);
+  const analysis = analyzeStreams(db);
+  const revenue = getRevenueSummary(db);
+  const trend = getMonthlyTrend(db, 6);
+
+  return {
+    action: 'research',
+    domain: 'career',
+    agentName: 'agent:revenue-auditor',
+    message: `You are a revenue analyst for Team Simonoto. Simon is an independent musician/producer. Audit his current revenue streams and identify gaps.
+
+CURRENT REVENUE STREAMS:
+${JSON.stringify(streams, null, 2)}
+
+GAP ANALYSIS:
+${JSON.stringify(analysis.summary, null, 2)}
+
+RECENT REVENUE (this month):
+${JSON.stringify(revenue, null, 2)}
+
+MONTHLY TREND (last 6 months):
+${JSON.stringify(trend, null, 2)}
+
+TASK:
+1. Assess each active stream — is the goal realistic? Is Simon on track?
+2. Identify the biggest gaps and what would close them
+3. Evaluate potential streams — which 1-2 should Simon activate first?
+4. Set specific, realistic monthly revenue goals per stream
+
+Respond with a JSON object:
+{
+  "audit_date": "${new Date().toISOString().slice(0, 10)}",
+  "active_assessment": [{"stream": "...", "health": "on-track|behind|stalled", "recommendation": "..."}],
+  "top_gaps": [{"stream": "...", "gap": 0, "fix": "..."}],
+  "recommended_new_streams": [{"name": "...", "why": "...", "estimated_monthly": 0, "effort_to_launch": "small|medium|large", "first_step": "..."}],
+  "revised_goals": [{"stream": "...", "current_goal": 0, "revised_goal": 0, "rationale": "..."}],
+  "total_potential_monthly": 0,
+  "summary": "2-3 sentence executive summary"
+}`,
+    options: { timeoutSeconds: 120, thinking: 'medium', sessionId: 'revenue-audit' },
   };
 }
 

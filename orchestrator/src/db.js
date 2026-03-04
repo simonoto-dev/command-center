@@ -117,6 +117,20 @@ export function createDb(path) {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS revenue_streams (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      name            TEXT NOT NULL,
+      type            TEXT NOT NULL,
+      status          TEXT NOT NULL DEFAULT 'active',
+      monthly_estimate REAL NOT NULL DEFAULT 0,
+      monthly_goal    REAL NOT NULL DEFAULT 0,
+      frequency       TEXT NOT NULL DEFAULT 'monthly',
+      notes           TEXT,
+      priority        INTEGER NOT NULL DEFAULT 0,
+      created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE TABLE IF NOT EXISTS social_posts (
       id          INTEGER PRIMARY KEY AUTOINCREMENT,
       proposal_id INTEGER,

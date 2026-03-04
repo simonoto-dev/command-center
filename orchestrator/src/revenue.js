@@ -165,6 +165,124 @@ export function updateOpportunity(db, id, updates) {
   return db.prepare('SELECT * FROM opportunities WHERE id = ?').get(id);
 }
 
+// --- Revenue Streams ---
+
+/**
+ * Add or update a revenue stream definition.
+ * @param {import('better-sqlite3').Database} db
+ * @param {object} opts
+ * @returns {object} The created/updated stream
+ */
+export function upsertStream(db, { name, type, status, monthly_estimate, monthly_goal, frequency, notes, priority }) {
+  const existing = db.prepare('SELECT * FROM revenue_streams WHERE name = ? AND type = ?').get(name, type);
+  if (existing) {
+    const fields = [];
+    const params = [];
+    if (status !== undefined) { fields.push('status = ?'); params.push(status); }
+    if (monthly_estimate !== undefined) { fields.push('monthly_estimate = ?'); params.push(monthly_estimate); }
+    if (monthly_goal !== undefined) { fields.push('monthly_goal = ?'); params.push(monthly_goal); }
+    if (frequency !== undefined) { fields.push('frequency = ?'); params.push(frequency); }
+    if (notes !== undefined) { fields.push('notes = ?'); params.push(notes); }
+    if (priority !== undefined) { fields.push('priority = ?'); params.push(priority); }
+    if (fields.length > 0) {
+      fields.push("updated_at = datetime('now')");
+      params.push(existing.id);
+      db.prepare(`UPDATE revenue_streams SET ${fields.join(', ')} WHERE id = ?`).run(...params);
+    }
+    return db.prepare('SELECT * FROM revenue_streams WHERE id = ?').get(existing.id);
+  }
+  const result = db.prepare(`
+    INSERT INTO revenue_streams (name, type, status, monthly_estimate, monthly_goal, frequency, notes, priority)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    name, type, status || 'active',
+    monthly_estimate || 0, monthly_goal || 0,
+    frequency || 'monthly', notes || null, priority || 0
+  );
+  return db.prepare('SELECT * FROM revenue_streams WHERE id = ?').get(result.lastInsertRowid);
+}
+
+/**
+ * List all revenue streams, ordered by priority then name.
+ * @param {import('better-sqlite3').Database} db
+ * @param {object} [opts]
+ * @returns {object[]}
+ */
+export function listStreams(db, { status } = {}) {
+  let sql = 'SELECT * FROM revenue_streams';
+  const params = [];
+  if (status) { sql += ' WHERE status = ?'; params.push(status); }
+  sql += ' ORDER BY priority DESC, name';
+  return db.prepare(sql).all(...params);
+}
+
+/**
+ * Update a revenue stream by id.
+ * @param {import('better-sqlite3').Database} db
+ * @param {number} id
+ * @param {object} updates
+ * @returns {object|null}
+ */
+export function updateStream(db, id, updates) {
+  const stream = db.prepare('SELECT * FROM revenue_streams WHERE id = ?').get(id);
+  if (!stream) return null;
+  const allowed = ['name', 'type', 'status', 'monthly_estimate', 'monthly_goal', 'frequency', 'notes', 'priority'];
+  const fields = [];
+  const params = [];
+  for (const [k, v] of Object.entries(updates)) {
+    if (allowed.includes(k)) { fields.push(`${k} = ?`); params.push(v); }
+  }
+  if (fields.length === 0) return stream;
+  fields.push("updated_at = datetime('now')");
+  params.push(id);
+  db.prepare(`UPDATE revenue_streams SET ${fields.join(', ')} WHERE id = ?`).run(...params);
+  return db.prepare('SELECT * FROM revenue_streams WHERE id = ?').get(id);
+}
+
+/**
+ * Analyze revenue streams: gap analysis + recommendations.
+ * Compares current estimates to goals, identifies missing streams.
+ * @param {import('better-sqlite3').Database} db
+ * @returns {object} Gap analysis report
+ */
+export function analyzeStreams(db) {
+  const streams = listStreams(db);
+  const active = streams.filter(s => s.status === 'active');
+  const potential = streams.filter(s => s.status === 'potential');
+  const paused = streams.filter(s => s.status === 'paused');
+
+  const totalEstimate = active.reduce((sum, s) => sum + s.monthly_estimate, 0);
+  const totalGoal = active.reduce((sum, s) => sum + s.monthly_goal, 0);
+
+  // Per-stream gap
+  const gaps = active.map(s => ({
+    name: s.name,
+    type: s.type,
+    estimate: s.monthly_estimate,
+    goal: s.monthly_goal,
+    gap: s.monthly_goal - s.monthly_estimate,
+    pct: s.monthly_goal > 0 ? Math.round((s.monthly_estimate / s.monthly_goal) * 100) : null,
+  })).filter(g => g.gap > 0).sort((a, b) => b.gap - a.gap);
+
+  // Potential upside from activating potential streams
+  const potentialUpside = potential.reduce((sum, s) => sum + s.monthly_goal, 0);
+
+  return {
+    summary: {
+      active_streams: active.length,
+      potential_streams: potential.length,
+      paused_streams: paused.length,
+      monthly_estimate: totalEstimate,
+      monthly_goal: totalGoal,
+      total_gap: totalGoal - totalEstimate,
+      gap_pct: totalGoal > 0 ? Math.round((totalEstimate / totalGoal) * 100) : null,
+      potential_upside: potentialUpside,
+    },
+    gaps,
+    streams: { active, potential, paused },
+  };
+}
+
 /**
  * Get upcoming deadlines across gigs and opportunities.
  */

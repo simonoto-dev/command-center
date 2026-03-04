@@ -6,6 +6,7 @@ import {
   addGig, listGigs, updateGig,
   addOpportunity, listOpportunities, updateOpportunity,
   getUpcomingDeadlines,
+  upsertStream, listStreams, updateStream, analyzeStreams,
 } from './revenue.js';
 
 let db;
@@ -99,6 +100,70 @@ describe('opportunities', () => {
 
     assert.equal(listOpportunities(db, { type: 'sync-licensing' }).length, 1);
     assert.equal(listOpportunities(db, { type: 'grant' }).length, 1);
+  });
+});
+
+describe('revenue streams', () => {
+  it('creates and lists streams', () => {
+    upsertStream(db, { name: 'Private Lessons', type: 'lessons', status: 'active', monthly_estimate: 1500, monthly_goal: 2000, priority: 10 });
+    upsertStream(db, { name: 'Streaming', type: 'streaming', status: 'active', monthly_estimate: 50, monthly_goal: 200, priority: 5 });
+
+    const streams = listStreams(db);
+    assert.equal(streams.length, 2);
+    assert.equal(streams[0].name, 'Private Lessons'); // higher priority first
+  });
+
+  it('upserts existing stream by name+type', () => {
+    upsertStream(db, { name: 'Lessons', type: 'lessons', monthly_estimate: 100, monthly_goal: 500 });
+    upsertStream(db, { name: 'Lessons', type: 'lessons', monthly_estimate: 200 });
+
+    const streams = listStreams(db);
+    assert.equal(streams.length, 1);
+    assert.equal(streams[0].monthly_estimate, 200);
+    assert.equal(streams[0].monthly_goal, 500); // unchanged
+  });
+
+  it('filters by status', () => {
+    upsertStream(db, { name: 'Active', type: 'lessons', status: 'active' });
+    upsertStream(db, { name: 'Potential', type: 'merch', status: 'potential' });
+
+    assert.equal(listStreams(db, { status: 'active' }).length, 1);
+    assert.equal(listStreams(db, { status: 'potential' }).length, 1);
+  });
+
+  it('updates a stream by id', () => {
+    const s = upsertStream(db, { name: 'Gigs', type: 'gigs', monthly_goal: 500 });
+    const updated = updateStream(db, s.id, { monthly_estimate: 300, notes: 'Booked 3 this month' });
+    assert.equal(updated.monthly_estimate, 300);
+    assert.equal(updated.notes, 'Booked 3 this month');
+  });
+
+  it('returns null for unknown stream id', () => {
+    assert.equal(updateStream(db, 999, { notes: 'nope' }), null);
+  });
+});
+
+describe('stream analysis', () => {
+  it('calculates gaps correctly', () => {
+    upsertStream(db, { name: 'Lessons', type: 'lessons', status: 'active', monthly_estimate: 1200, monthly_goal: 2000 });
+    upsertStream(db, { name: 'Streaming', type: 'streaming', status: 'active', monthly_estimate: 50, monthly_goal: 200 });
+    upsertStream(db, { name: 'Sample Pack', type: 'merch', status: 'potential', monthly_goal: 300 });
+
+    const analysis = analyzeStreams(db);
+    assert.equal(analysis.summary.active_streams, 2);
+    assert.equal(analysis.summary.potential_streams, 1);
+    assert.equal(analysis.summary.monthly_estimate, 1250);
+    assert.equal(analysis.summary.monthly_goal, 2200);
+    assert.equal(analysis.summary.total_gap, 950);
+    assert.equal(analysis.summary.potential_upside, 300);
+    assert.equal(analysis.gaps.length, 2); // both active streams have gaps
+    assert.equal(analysis.gaps[0].name, 'Lessons'); // biggest gap first
+  });
+
+  it('handles empty streams', () => {
+    const analysis = analyzeStreams(db);
+    assert.equal(analysis.summary.active_streams, 0);
+    assert.equal(analysis.summary.total_gap, 0);
   });
 });
 
