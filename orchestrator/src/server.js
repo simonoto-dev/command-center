@@ -115,13 +115,23 @@ export function createServer({ dbPath }) {
         recommendation: recommendation || 'none',
         source: source || 'api',
       });
-      logAction(db, {
-        agent: source || 'api',
-        action: 'create_proposal',
-        domain,
-        detail: `proposal "${title}" created`,
-      });
-      res.status(201).json(proposal);
+      if (proposal._deduplicated) {
+        logAction(db, {
+          agent: source || 'api',
+          action: 'dedup_proposal',
+          domain,
+          detail: `proposal "${title}" deduplicated against #${proposal.id} (status=${proposal.status})`,
+        });
+        res.status(200).json(proposal);
+      } else {
+        logAction(db, {
+          agent: source || 'api',
+          action: 'create_proposal',
+          domain,
+          detail: `proposal "${title}" created`,
+        });
+        res.status(201).json(proposal);
+      }
     } catch (err) {
       res.status(400).json({ error: err.message });
     }

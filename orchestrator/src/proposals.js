@@ -1,7 +1,11 @@
 const VALID_RESOLUTIONS = ['greenlit', 'modified', 'rejected', 'shelved', 'expired', 'shipped'];
 
 /**
- * Check if a similar proposal already exists (pending or greenlit) for the same domain.
+ * Check if a similar proposal already exists for the same domain within the
+ * last 7 days, regardless of status. This prevents overnight scan cycles from
+ * re-creating proposals that were already resolved (shipped, rejected, shelved,
+ * expired) as well as ones still pending/greenlit.
+ *
  * Uses case-insensitive title comparison to catch duplicates like
  * "Add favicon" vs "Add Favicon" or exact repeats across scan cycles.
  * @param {import('better-sqlite3').Database} db
@@ -12,7 +16,8 @@ const VALID_RESOLUTIONS = ['greenlit', 'modified', 'rejected', 'shelved', 'expir
 export function findDuplicate(db, domain, title) {
   return db.prepare(`
     SELECT * FROM proposals
-    WHERE domain = ? AND LOWER(title) = LOWER(?) AND status IN ('pending', 'greenlit')
+    WHERE domain = ? AND LOWER(title) = LOWER(?)
+      AND created_at > datetime('now', '-7 days')
     ORDER BY created_at DESC
     LIMIT 1
   `).get(domain, title) || null;
@@ -20,7 +25,7 @@ export function findDuplicate(db, domain, title) {
 
 /**
  * Create a new proposal. Returns the existing proposal if a duplicate
- * (same domain + title, still pending/greenlit) already exists.
+ * (same domain + title, within the last 7 days regardless of status) already exists.
  * @param {import('better-sqlite3').Database} db
  * @param {object} opts
  * @param {string} opts.domain
@@ -32,9 +37,10 @@ export function findDuplicate(db, domain, title) {
  * @returns {{ proposal: object, deduplicated: boolean }|object} The proposal row (with deduplicated flag if caller checks, or just the row for backwards compat)
  */
 export function createProposal(db, { domain, title, body, effort, recommendation, source }) {
-  // Dedup: skip insert if a pending/greenlit proposal with the same domain+title exists
+  // Dedup: skip insert if a proposal with the same domain+title exists within 7 days
   const existing = findDuplicate(db, domain, title);
   if (existing) {
+    console.log(`[dedup] Skipped duplicate proposal: "${title}" (domain=${domain}, existing=#${existing.id} status=${existing.status})`);
     existing._deduplicated = true;
     return existing;
   }

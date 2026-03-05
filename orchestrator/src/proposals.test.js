@@ -231,7 +231,7 @@ describe('proposals module', () => {
     assert.notEqual(first.id, second.id, 'different domains should create separate proposals');
   });
 
-  it('should allow re-proposing after a proposal is shelved', () => {
+  it('should deduplicate against shelved proposals within 7 days', () => {
     const first = createProposal(db, {
       domain: 'dedup-resolved',
       title: 'Investigate issue',
@@ -253,7 +253,35 @@ describe('proposals module', () => {
       source: 'scan-2',
     });
 
-    assert.notEqual(first.id, second.id, 'should create a new proposal since original was resolved');
+    // With 7-day window dedup, shelved proposals within 7 days are still caught
+    assert.equal(first.id, second.id, 'should deduplicate against recently shelved proposal');
+    assert.equal(second._deduplicated, true, 'should be flagged as deduplicated');
+  });
+
+  it('should allow re-proposing after 7 days (simulated via direct DB manipulation)', () => {
+    const first = createProposal(db, {
+      domain: 'dedup-old',
+      title: 'Old shelved proposal',
+      body: 'First attempt',
+      effort: 'small',
+      recommendation: 'greenlight',
+      source: 'scan-1',
+    });
+
+    // Shelve the first one and backdate it to 8 days ago
+    resolveProposal(db, first.id, 'shelved', 'Not now');
+    db.prepare("UPDATE proposals SET created_at = datetime('now', '-8 days') WHERE id = ?").run(first.id);
+
+    const second = createProposal(db, {
+      domain: 'dedup-old',
+      title: 'Old shelved proposal',
+      body: 'Re-proposed after expiry window',
+      effort: 'small',
+      recommendation: 'greenlight',
+      source: 'scan-2',
+    });
+
+    assert.notEqual(first.id, second.id, 'should create new proposal after 7-day window');
     assert.equal(second._deduplicated, undefined, 'should not be flagged as deduplicated');
   });
 
@@ -279,6 +307,81 @@ describe('proposals module', () => {
     });
 
     assert.equal(first.id, second.id, 'should deduplicate against greenlit (still in pipeline)');
+  });
+
+  it('should deduplicate against shipped proposals within 7 days', () => {
+    const first = createProposal(db, {
+      domain: 'dedup-shipped',
+      title: 'Investigate custom domain',
+      body: 'Check DNS settings',
+      effort: 'small',
+      recommendation: 'greenlight',
+      source: 'overnight-scan-1',
+    });
+
+    resolveProposal(db, first.id, 'shipped', 'Done');
+
+    const second = createProposal(db, {
+      domain: 'dedup-shipped',
+      title: 'Investigate custom domain',
+      body: 'Check DNS settings again',
+      effort: 'small',
+      recommendation: 'greenlight',
+      source: 'overnight-scan-2',
+    });
+
+    assert.equal(first.id, second.id, 'should deduplicate against recently shipped proposal');
+    assert.equal(second._deduplicated, true);
+  });
+
+  it('should deduplicate against rejected proposals within 7 days', () => {
+    const first = createProposal(db, {
+      domain: 'dedup-rejected',
+      title: 'Add analytics tracking',
+      body: 'Embed tracking pixel',
+      effort: 'small',
+      recommendation: 'greenlight',
+      source: 'scan-1',
+    });
+
+    resolveProposal(db, first.id, 'rejected', 'Not wanted');
+
+    const second = createProposal(db, {
+      domain: 'dedup-rejected',
+      title: 'Add analytics tracking',
+      body: 'Different body',
+      effort: 'small',
+      recommendation: 'greenlight',
+      source: 'scan-2',
+    });
+
+    assert.equal(first.id, second.id, 'should deduplicate against recently rejected proposal');
+    assert.equal(second._deduplicated, true);
+  });
+
+  it('should deduplicate against expired proposals within 7 days', () => {
+    const first = createProposal(db, {
+      domain: 'dedup-expired',
+      title: 'Fix stale cache',
+      body: 'Clear CDN cache',
+      effort: 'small',
+      recommendation: 'greenlight',
+      source: 'scan-1',
+    });
+
+    resolveProposal(db, first.id, 'expired', 'No longer relevant');
+
+    const second = createProposal(db, {
+      domain: 'dedup-expired',
+      title: 'Fix stale cache',
+      body: 'Different approach',
+      effort: 'small',
+      recommendation: 'greenlight',
+      source: 'scan-2',
+    });
+
+    assert.equal(first.id, second.id, 'should deduplicate against recently expired proposal');
+    assert.equal(second._deduplicated, true);
   });
 
   it('findDuplicate should return null when no match', () => {
